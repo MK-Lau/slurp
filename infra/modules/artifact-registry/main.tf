@@ -13,5 +13,13 @@ resource "google_artifact_registry_repository" "images" {
     }
   }
 
+  cleanup_policies {
+    id     = "delete-all"
+    action = "DELETE"
+    condition {
+      tag_state = "ANY"
+    }
+  }
+
   cleanup_policy_dry_run = false
 }
