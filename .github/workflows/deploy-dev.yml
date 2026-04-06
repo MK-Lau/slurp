@@ -3,8 +3,8 @@ name: Deploy Dev
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - master
 
 permissions:
   contents: read

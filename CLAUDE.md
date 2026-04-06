@@ -73,7 +73,7 @@ cp apps/web/.env.local.example apps/web/.env.local
 1. **terraform-validate** — runs `terraform validate` (no GCP auth required)
 2. **build-and-test** — `npm ci` → lint → unit tests
 
-### deploy-dev.yml (on push to master or manual dispatch)
+### deploy-dev.yml (on push to master or manual dispatch; does NOT run on tag pushes)
 Runs in dependency order:
 1. **build-and-test** + **terraform-validate** (parallel)
 2. **build-and-push-{api,web,receipt-processor}** (parallel, after above) — Docker build tagged `git-<sha>` and `dev-latest`, Trivy image scan, pushed to Artifact Registry
