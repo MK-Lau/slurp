@@ -1,0 +1,7 @@
+project_id             = "<YOUR_GCP_PROJECT_ID>"
+region                 = "us-central1"
+billing_account        = "" # your GCP billing account ID (e.g. "XXXXXX-XXXXXX-XXXXXX"), leave blank to skip billing budget
+custom_domain          = "<YOUR_CUSTOM_DOMAIN>"   # leave blank to skip custom domain setup
+receipt_bucket_prefix  = "<YOUR_PROJECT>-receipts"
+terraform_state_bucket = "<YOUR_PROJECT>-terraform-state"
+github_repository      = "<GITHUB_ORG>/<REPO_NAME>"

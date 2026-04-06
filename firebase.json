@@ -1,0 +1,19 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "site": "slurp-prod",
+    "public": ".firebase-hosting-placeholder",
+    "ignore": ["firebase.json", "**/.*"],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "slurp-web-prod",
+          "region": "us-central1"
+        }
+      }
+    ]
+  }
+}

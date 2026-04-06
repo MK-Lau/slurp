@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-size: 17px;
+  }
+
+  @media (min-width: 768px) {
+    html {
+      font-size: 16px;
+    }
+  }
+
+  body {
+    @apply antialiased text-gray-900;
+    font-family: var(--font-inter), system-ui, sans-serif;
+  }
+
+  input[type="checkbox"] {
+    accent-color: #9333ea;
+  }
+
+  *:focus {
+    outline: none;
+  }
+
+  *:focus-visible {
+    @apply ring-2 ring-purple-500 ring-offset-1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body {
+      @apply text-gray-100 bg-gray-950;
+    }
+
+    input[type="checkbox"] {
+      accent-color: #c084fc;
+    }
+
+    *:focus-visible {
+      @apply ring-purple-400;
+    }
+  }
+}
