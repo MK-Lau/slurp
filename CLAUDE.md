@@ -44,9 +44,9 @@ npm run lint --workspace=@slurp/api
 
 **Stack**: Express.js API + Next.js frontend + receipt-processor, all deployed to Cloud Run. Firestore as database, Firebase Auth for authentication, Cloud Storage for receipt images, Pub/Sub for async job dispatch, Gemini AI (Vertex AI) for receipt parsing.
 
-**Security model**: Firestore client rules are read-only for participants. All writes go through the API using Firebase Admin SDK. Firebase Auth tokens are verified server-side. Receipt bucket is private (no public access); signed URLs are used for client uploads (PUT only).
+**Security model**: Firestore client reads and writes are blocked entirely for slurps — all access goes through the API using Firebase Admin SDK. Firebase Auth tokens are verified server-side. Receipt bucket is private (no public access); signed URLs are used for client uploads (PUT only).
 
-**Async receipt flow**: Client → `POST /slurps/:id/receipt/upload-url` (get V4 signed PUT URL) → PUT image to GCS → `POST /slurps/:id/receipt/process` (publish Pub/Sub message) → receipt-processor Cloud Run (Pub/Sub push) → Gemini parses via `file_data` GCS URI → Firestore updated with items + `receiptStatus`. Frontend uses Firestore `onSnapshot` to detect completion.
+**Async receipt flow**: Client → `POST /slurps/:id/receipt/upload-url` (get V4 signed PUT URL) → PUT image to GCS → `POST /slurps/:id/receipt/process` (publish Pub/Sub message) → receipt-processor Cloud Run (Pub/Sub push) → Gemini parses via `file_data` GCS URI → Firestore updated with items + `receiptStatus`. Frontend polls `GET /slurps/:id` every 2 seconds until `receiptStatus` is `done` or `failed`.
 
 **API routes**:
 - `apps/api/src/routes/slurps.ts`: `GET/POST /slurps`, `GET/PATCH /slurps/:id`, `POST /slurps/:id/items`, `POST /slurps/:id/invite`, `POST /slurps/:id/join`, `PUT /slurps/:id/selections`, `POST /slurps/:id/confirm`, `GET /slurps/:id/summary`

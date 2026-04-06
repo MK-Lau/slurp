@@ -6,13 +6,8 @@ service cloud.firestore {
     // All writes go through the Admin SDK (server-side), so client writes are
     // denied entirely. Reads are allowed only to participants matched by uid.
     match /slurps/{slurpId} {
-      function isParticipantByUid() {
-        return request.auth != null &&
-          'participants' in resource.data &&
-          request.auth.uid in resource.data.participants
-            .map(p, p.uid);
-      }
-
+      // All reads are served through the API (Admin SDK); direct client reads
+      // and writes are blocked entirely.
       allow read: if false;
       allow write: if false;
     }

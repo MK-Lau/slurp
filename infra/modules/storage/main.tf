@@ -43,10 +43,3 @@ resource "google_storage_bucket_iam_member" "processor_receipts" {
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${var.receipt_processor_service_account}"
 }
-
-# Allow Claude Web SA to read receipt objects
-resource "google_storage_bucket_iam_member" "claude_web_receipts" {
-  bucket = google_storage_bucket.receipts.name
-  role   = "roles/storage.objectViewer"
-  member = "serviceAccount:${var.claude_web_service_account}"
-}

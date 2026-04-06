@@ -119,8 +119,7 @@ module "storage" {
   environment                       = each.key
   cloud_run_service_account         = module.iam.cloud_run_service_account_email
   receipt_processor_service_account = module.iam.receipt_processor_service_account_email
-  claude_web_service_account        = module.iam.claude_web_service_account_email
-  bucket_prefix                     = var.receipt_bucket_prefix
+bucket_prefix                     = var.receipt_bucket_prefix
   frontend_urls                     = each.key == "prod" ? concat(["https://slurp-web-${each.key}-${data.google_project.default.number}.${var.region}.run.app"], local.custom_domain_url_set) : ["https://slurp-web-${each.key}-${data.google_project.default.number}.${var.region}.run.app"]
 
   depends_on = [google_project_service.apis]
