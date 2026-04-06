@@ -19,11 +19,6 @@ variable "receipt_processor_service_account" {
   description = "Email of the receipt processor service account (objectViewer on bucket)"
 }
 
-variable "claude_web_service_account" {
-  type        = string
-  description = "Email of the Claude Web service account (objectViewer on bucket)"
-}
-
 variable "bucket_prefix" {
   type        = string
   description = "Prefix for the receipt bucket name. Full name: <prefix>-<environment>"

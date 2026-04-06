@@ -290,7 +290,9 @@ router.get(
   }
 );
 
-// GET /slurps/:id/og — public, no auth, minimal info for OG/iMessage previews
+// GET /slurps/:id/og — intentionally public, no auth. Returns only title and
+// host display name for Open Graph / iMessage link previews. Access is gated
+// in practice by the unguessable nanoid() slurp ID.
 router.get(
   "/:id/og",
   async (req: Request, res: Response, next: NextFunction) => {

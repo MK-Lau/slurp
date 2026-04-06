@@ -22,8 +22,3 @@ output "pubsub_invoker_service_account_email" {
   description = "Email of the Pub/Sub invoker service account"
   value       = google_service_account.pubsub_invoker.email
 }
-
-output "claude_web_service_account_email" {
-  description = "Email of the Claude Web read-only service account"
-  value       = google_service_account.claude_web.email
-}

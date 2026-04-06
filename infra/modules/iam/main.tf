@@ -129,22 +129,6 @@ resource "google_service_account_iam_member" "pubsub_agent_token_creator" {
   member             = "serviceAccount:service-${var.project_number}@gcp-sa-pubsub.iam.gserviceaccount.com"
 }
 
-# ── Claude Web SA (read-only observer) ────────────────────────────────────────
-
-resource "google_service_account" "claude_web" {
-  project      = var.project_id
-  account_id   = "slurp-claude-web"
-  display_name = "Slurp Claude Web Service Account"
-}
-
-# Broad read-only access across GCP resources (Cloud Run, Firestore, Storage,
-# Pub/Sub, Artifact Registry, IAM, Logging, etc.)
-resource "google_project_iam_member" "claude_web_viewer" {
-  project = var.project_id
-  role    = "roles/viewer"
-  member  = "serviceAccount:${google_service_account.claude_web.email}"
-}
-
 # ── Self-sign binding for V4 signed URLs ──────────────────────────────────────
 
 # Cloud Run SA needs token creator on itself to generate V4 signed URLs
