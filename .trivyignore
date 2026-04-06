@@ -1,0 +1,25 @@
+# CVEs from packages bundled inside Next.js internals (node_modules/next/dist/).
+# These are compiled into Next.js and cannot be updated via npm.
+# Accepted until Next.js releases a version with updated bundled deps.
+
+# cross-spawn@7.0.3 bundled in next/dist — ReDoS, not reachable via user input
+CVE-2024-21538
+
+# glob@7.1.7 bundled in next/dist — multiple CVEs
+CVE-2025-64756
+
+# minimatch bundled transitively through Next.js
+CVE-2026-26996
+CVE-2026-27903
+CVE-2026-27904
+
+# tar bundled transitively through Next.js
+CVE-2026-23745
+CVE-2026-23950
+CVE-2026-24842
+CVE-2026-26960
+CVE-2026-29786
+CVE-2026-31802
+
+# picomatch@4.0.3 bundled transitively through Next.js / jest internals
+CVE-2026-33671
