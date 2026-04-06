@@ -20,7 +20,7 @@ RUN npm run build --workspace=@slurp/api
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN npm install -g npm@11
+RUN apk upgrade --no-cache && npm install -g npm@11
 
 COPY package*.json ./
 COPY apps/api/package.json ./apps/api/

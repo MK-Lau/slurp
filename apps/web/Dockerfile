@@ -21,6 +21,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV HOSTNAME=0.0.0.0
+RUN apk upgrade --no-cache
 
 # Next.js standalone output with outputFileTracingRoot set to monorepo root:
 # server.js lands at apps/web/server.js, node_modules at root
