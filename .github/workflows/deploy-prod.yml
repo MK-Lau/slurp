@@ -3,9 +3,6 @@ name: Deploy Prod
 on:
   workflow_dispatch:
     inputs:
-      _register:
-        description: "ignore"
-        required: false
       image_tag:
         description: "API image tag to deploy (e.g. git-abc1234). Defaults to dev-latest."
         required: false
