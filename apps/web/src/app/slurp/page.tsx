@@ -68,7 +68,18 @@ function SlurpsPageContent(): React.JSX.Element {
       .finally(() => setLoadingMoreInvited(false));
   }
 
-  if (loading || !user) return <></>;
+  if (loading || !user) {
+    return (
+      <div className="max-w-2xl mx-auto mt-4 sm:mt-10 px-4 sm:p-6">
+        <div className="h-8 w-32 rounded bg-gray-200 dark:bg-gray-700 animate-pulse mb-6" />
+        <div className="flex flex-col gap-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-10 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const sections = [
     { key: "created", label: "Created", items: created, hasMore: !!nextCursorCreated, loadingMore: loadingMoreCreated, onLoadMore: loadMoreCreated },
@@ -129,9 +140,22 @@ function SlurpsPageContent(): React.JSX.Element {
   );
 }
 
+function SlurpsPageFallback(): React.JSX.Element {
+  return (
+    <div className="max-w-2xl mx-auto mt-4 sm:mt-10 px-4 sm:p-6">
+      <div className="h-8 w-32 rounded bg-gray-200 dark:bg-gray-700 animate-pulse mb-6" />
+      <div className="flex flex-col gap-2">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-10 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SlurpsPage(): React.JSX.Element {
   return (
-    <Suspense>
+    <Suspense fallback={<SlurpsPageFallback />}>
       <SlurpsPageContent />
     </Suspense>
   );

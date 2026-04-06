@@ -82,7 +82,7 @@ function ProfileContent(): React.JSX.Element {
     };
   }, [displayName, venmoUsername, preferredCurrency, refreshProfile]);
 
-  if (loading || !user) return <></>;
+  if (loading || !user) return <ProfilePageFallback />;
 
   return (
     <div className="max-w-md mx-auto mt-4 sm:mt-10 px-4 sm:p-6">
@@ -143,9 +143,22 @@ function ProfileContent(): React.JSX.Element {
   );
 }
 
+function ProfilePageFallback(): React.JSX.Element {
+  return (
+    <div className="max-w-md mx-auto mt-4 sm:mt-10 px-4 sm:p-6">
+      <div className="h-8 w-24 rounded bg-gray-200 dark:bg-gray-700 animate-pulse mb-6" />
+      <div className="flex flex-col gap-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-10 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage(): React.JSX.Element {
   return (
-    <Suspense>
+    <Suspense fallback={<ProfilePageFallback />}>
       <ProfileContent />
     </Suspense>
   );

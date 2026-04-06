@@ -133,7 +133,7 @@ function LoginContent(): React.JSX.Element {
     }
   }
 
-  if (loading) return <main className="flex min-h-screen items-center justify-center" />;
+  if (loading) return <LoginFallback />;
 
   if (completingEmailLink) {
     return (
@@ -265,9 +265,22 @@ function LoginContent(): React.JSX.Element {
   );
 }
 
+function LoginFallback(): React.JSX.Element {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-6">
+      <h1 className="text-3xl font-bold mb-2">Slurp 🍜</h1>
+      <p className="text-gray-500 dark:text-gray-400 mb-8">Sign in to split bills with friends.</p>
+      <div className="flex flex-col gap-3 w-full max-w-xs">
+        <div className="h-10 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+        <div className="h-10 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+      </div>
+    </main>
+  );
+}
+
 export default function LoginPage(): React.JSX.Element {
   return (
-    <Suspense>
+    <Suspense fallback={<LoginFallback />}>
       <LoginContent />
     </Suspense>
   );

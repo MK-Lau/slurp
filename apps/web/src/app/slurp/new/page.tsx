@@ -66,7 +66,18 @@ export default function NewSlurpPage(): React.JSX.Element {
       .catch(() => {});
   }, [user]);
 
-  if (loading || !user) return <></>;
+  if (loading || !user) {
+    return (
+      <div className="max-w-2xl mx-auto mt-4 sm:mt-10 px-4 sm:p-6">
+        <div className="h-8 w-40 rounded bg-gray-200 dark:bg-gray-700 animate-pulse mb-6" />
+        <div className="flex flex-col gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-10 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   function addItemRow(): void {
     setItems((prev) => [...prev, { key: Date.now(), name: "", price: "" }]);

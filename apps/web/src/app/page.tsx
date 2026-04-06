@@ -47,7 +47,9 @@ export default function Home(): React.JSX.Element {
         <p className="mt-3 text-lg text-gray-500 dark:text-gray-400">Split bills with friends, effortlessly.</p>
 
         <div className="mt-8">
-          {loading ? null : user ? (
+          {loading ? (
+            <div className="h-12 w-36 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          ) : user ? (
             <Link
               href="/slurp/new"
               className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-8 py-3 text-white font-medium shadow-sm hover:bg-purple-700 transition-colors duration-150"
