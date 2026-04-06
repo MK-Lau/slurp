@@ -6,6 +6,14 @@ resource "google_artifact_registry_repository" "images" {
   description   = "Docker images for the Slurp application"
 
   cleanup_policies {
+    id     = "keep-latest-tags"
+    action = "KEEP"
+    condition {
+      tag_prefixes = ["dev-latest", "prod-latest"]
+    }
+  }
+
+  cleanup_policies {
     id     = "keep-last-10"
     action = "KEEP"
     most_recent_versions {
