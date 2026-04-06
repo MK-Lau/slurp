@@ -102,4 +102,6 @@ terraform init -backend-config=backends/unified.gcs.tfbackend
 terraform apply -var-file=vars/main.tfvars
 ```
 
+**Always run `terraform plan -var-file=vars/main.tfvars` and review the output before running `terraform apply`.** Never apply without showing the plan first.
+
 Both `infra/vars/main.tfvars` and `infra/backends/unified.gcs.tfbackend` are gitignored. Copy from their `.example` counterparts and fill in your values.
