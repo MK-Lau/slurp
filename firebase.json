@@ -2,18 +2,34 @@
   "firestore": {
     "rules": "firestore.rules"
   },
-  "hosting": {
-    "site": "slurp-prod",
-    "public": ".firebase-hosting-placeholder",
-    "ignore": ["firebase.json", "**/.*"],
-    "rewrites": [
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "slurp-web-prod",
-          "region": "us-central1"
+  "hosting": [
+    {
+      "site": "slurp-prod",
+      "public": ".firebase-hosting-placeholder",
+      "ignore": ["firebase.json", "**/.*"],
+      "rewrites": [
+        {
+          "source": "**",
+          "run": {
+            "serviceId": "slurp-web-prod",
+            "region": "us-central1"
+          }
         }
-      }
-    ]
-  }
+      ]
+    },
+    {
+      "site": "slurp-dev",
+      "public": ".firebase-hosting-placeholder",
+      "ignore": ["firebase.json", "**/.*"],
+      "rewrites": [
+        {
+          "source": "**",
+          "run": {
+            "serviceId": "slurp-web-dev",
+            "region": "us-central1"
+          }
+        }
+      ]
+    }
+  ]
 }

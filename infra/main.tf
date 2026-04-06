@@ -316,7 +316,15 @@ module "cloud_run_web" {
   depends_on = [google_project_service.apis]
 }
 
-# ── Firebase Hosting (prod) ───────────────────────────────────────────────────
+# ── Firebase Hosting ──────────────────────────────────────────────────────────
+
+resource "google_firebase_hosting_site" "dev" {
+  provider = google-beta
+  project  = var.project_id
+  site_id  = "slurp-dev"
+
+  depends_on = [google_project_service.apis]
+}
 
 resource "google_firebase_hosting_site" "prod" {
   provider = google-beta
