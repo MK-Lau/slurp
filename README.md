@@ -1,6 +1,6 @@
 # Slurp
 
-A receipt-splitting web app. Create a split, upload a receipt (parsed automatically via Gemini AI), invite participants, let everyone pick their items, and get a breakdown of who owes what including tax and tip.
+A receipt-splitting web app. Create a split, upload a receipt, invite participants, let everyone pick their items, and get a breakdown of who owes what including tax and tip.
 
 ## Features
 
