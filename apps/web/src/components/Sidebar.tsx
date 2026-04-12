@@ -19,7 +19,7 @@ export default function Sidebar(): React.JSX.Element {
 
   useEffect(() => {
     if (!user) return;
-    listSlurps()
+    listSlurps({ limit: DESKTOP_LIMIT + 1 })
       .then((res) => {
         setCreated(res.created);
         setInvited(res.invited);
