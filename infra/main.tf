@@ -170,6 +170,7 @@ module "cloud_run_processor" {
   receipt_bucket_name   = module.storage[each.key].receipt_bucket_name
   public                = false
   extra_env_vars = {
+    GOOGLE_CLOUD_PROJECT         = var.project_id
     PUBSUB_SERVICE_ACCOUNT_EMAIL = module.iam.pubsub_invoker_service_account_email
     PROCESSOR_URL                = local.processor_urls[each.key]
   }
