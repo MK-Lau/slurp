@@ -362,6 +362,27 @@ router.patch(
   }
 );
 
+// DELETE /slurps/:id
+router.delete(
+  "/:id",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ref = slurpRef(req.params.id);
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new NotFoundError("Slurp not found");
+        const slurp = normalizeSlurp(snap.data()!);
+        requireHost(slurp, req.user.uid);
+        tx.delete(ref);
+      });
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // POST /slurps/:id/items — add item
 router.post(
   "/:id/items",

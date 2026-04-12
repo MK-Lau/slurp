@@ -36,6 +36,9 @@ export async function apiFetch<T>(
       if (res.status === 429) throw new Error("Too many requests, please try again later");
       throw new Error(`HTTP ${res.status}`);
     }
+    if (res.status === 204 || res.headers.get("content-length") === "0") {
+      return undefined as T;
+    }
     return res.json() as T;
   }).finally(() => {
     inFlight.delete(cacheKey);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { Slurp } from "@slurp/types";
 import ItemList from "./ItemList";
 import ItemForm from "./ItemForm";
@@ -10,6 +11,7 @@ import TaxTipForm from "./TaxTipForm";
 import CurrencyConversionForm from "./CurrencyConversionForm";
 import GuestView from "./GuestView";
 import SummaryView from "./SummaryView";
+import DeleteSlurpModal from "./DeleteSlurpModal";
 import { dismissReceiptWarning, updateSlurp } from "@/lib/slurps";
 
 interface Props {
@@ -21,9 +23,11 @@ interface Props {
 type Tab = "manage" | "participate" | "summary";
 
 export default function HostView({ slurp, viewerUid, onUpdate }: Props): React.JSX.Element {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("manage");
   const [titleDraft, setTitleDraft] = useState(slurp.title);
   const [savingTitle, setSavingTitle] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const hostParticipant = slurp.participants.find((p) => p.uid === viewerUid);
   const showWarning = !!slurp.receiptWarning && !slurp.receiptWarningDismissed;
 
@@ -132,6 +136,16 @@ export default function HostView({ slurp, viewerUid, onUpdate }: Props): React.J
             <h2 className="font-semibold text-lg">Guests</h2>
             <ParticipantList slurp={slurp} isHost onUpdate={onUpdate} />
           </section>
+
+          <section className="border-t border-red-200 dark:border-red-900 pt-6">
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="rounded bg-red-600 px-4 py-2 text-white text-sm font-medium hover:bg-red-700"
+            >
+              Delete slurp
+            </button>
+          </section>
+
           <div className="pb-16" />
         </div>
       )}
@@ -146,6 +160,15 @@ export default function HostView({ slurp, viewerUid, onUpdate }: Props): React.J
 
       {tab === "summary" && (
         <SummaryView slurp={slurp} isHost={true} viewerUid={viewerUid} onUpdate={onUpdate} />
+      )}
+
+      {showDeleteModal && (
+        <DeleteSlurpModal
+          slurpId={slurp.id}
+          slurpTitle={slurp.title}
+          onDone={() => router.push("/slurp")}
+          onCancel={() => setShowDeleteModal(false)}
+        />
       )}
     </div>
   );

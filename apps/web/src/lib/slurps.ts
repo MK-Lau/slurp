@@ -37,6 +37,9 @@ export const getSlurpPreview = (id: string, token: string): Promise<SlurpPreview
 export const updateSlurp = (id: string, body: UpdateSlurpRequest): Promise<Slurp> =>
   apiFetch<Slurp>(`/slurps/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 
+export const deleteSlurp = (id: string): Promise<void> =>
+  apiFetch<void>(`/slurps/${id}`, { method: "DELETE" });
+
 export const addItem = (id: string, body: AddItemRequest): Promise<Slurp> =>
   apiFetch<Slurp>(`/slurps/${id}/items`, { method: "POST", body: JSON.stringify(body) });
 
