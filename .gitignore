@@ -16,6 +16,7 @@ infra/backends/*.tfbackend
 *.tsbuildinfo
 next-env.d.ts
 logs/
+scripts/results/
 firebase-debug.log
 .claude/*
 !.claude/settings.json
