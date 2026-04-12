@@ -25,6 +25,7 @@ function makeOkResponse(body: unknown): Response {
   return {
     ok: true,
     status: 200,
+    headers: { get: jest.fn().mockReturnValue(null) },
     json: jest.fn().mockResolvedValue(body),
   } as unknown as Response;
 }
@@ -33,6 +34,7 @@ function makeErrorResponse(): Response {
   return {
     ok: false,
     status: 500,
+    headers: { get: jest.fn().mockReturnValue(null) },
     json: jest.fn().mockResolvedValue({}),
   } as unknown as Response;
 }
