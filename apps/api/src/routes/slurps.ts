@@ -192,9 +192,9 @@ router.get(
         .map((d) => normalizeSlurp(d.data()!))
         .map((d) => sanitizeSlurpForResponse(d, uid, email));
 
-      const hasMoreInvited = invitedSnap.docs.length > limit;
       const hostedIds = new Set(hostedSnap.docs.map((d) => d.id));
       const filteredInvitedDocs = invitedSnap.docs.filter((d) => !hostedIds.has(d.id));
+      const hasMoreInvited = filteredInvitedDocs.length > limit;
       const invitedDocs = hasMoreInvited ? filteredInvitedDocs.slice(0, limit) : filteredInvitedDocs;
       const invited = invitedDocs
         .map((d) => normalizeSlurp(d.data()!))
