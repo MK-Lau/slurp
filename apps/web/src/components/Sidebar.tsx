@@ -19,7 +19,7 @@ export default function Sidebar(): React.JSX.Element {
 
   useEffect(() => {
     if (!user) return;
-    listSlurps({ limit: DESKTOP_LIMIT + 1 })
+    listSlurps()
       .then((res) => {
         setCreated(res.created);
         setInvited(res.invited);
@@ -72,10 +72,10 @@ export default function Sidebar(): React.JSX.Element {
               ))}
             </ul>
           )}
-          {created.length > MOBILE_LIMIT && (
+          {created.length > 0 && (
             <Link
               href="/slurp?tab=created"
-              className={`mt-1 block text-xs text-purple-600 hover:text-purple-800 transition-colors duration-150 ${created.length <= DESKTOP_LIMIT ? "lg:hidden" : ""}`}
+              className="mt-1 block text-xs text-purple-600 hover:text-purple-800 transition-colors duration-150"
             >
               See all →
             </Link>
@@ -109,10 +109,10 @@ export default function Sidebar(): React.JSX.Element {
               ))}
             </ul>
           )}
-          {invited.length > MOBILE_LIMIT && (
+          {invited.length > 0 && (
             <Link
               href="/slurp?tab=invited"
-              className={`mt-1 block text-xs text-purple-600 hover:text-purple-800 transition-colors duration-150 ${invited.length <= DESKTOP_LIMIT ? "lg:hidden" : ""}`}
+              className="mt-1 block text-xs text-purple-600 hover:text-purple-800 transition-colors duration-150"
             >
               See all →
             </Link>
