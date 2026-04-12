@@ -1,9 +1,34 @@
-import { VertexAI } from "@google-cloud/vertexai";
+import { SchemaType, VertexAI } from "@google-cloud/vertexai";
 import pino from "pino";
 
 const logger = pino();
 const MODEL = "gemini-2.5-flash";
 const LOCATION = "us-central1";
+
+const RECEIPT_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    title: { type: SchemaType.STRING, nullable: true },
+    items: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          name:     { type: SchemaType.STRING },
+          price:    { type: SchemaType.NUMBER },
+          quantity: { type: SchemaType.INTEGER },
+        },
+        required: ["name", "price", "quantity"],
+      },
+    },
+    tax:        { type: SchemaType.NUMBER, nullable: true },
+    tip:        { type: SchemaType.NUMBER, nullable: true },
+    subtotal:   { type: SchemaType.NUMBER, nullable: true },
+    total:      { type: SchemaType.NUMBER, nullable: true },
+    confidence: { type: SchemaType.STRING, enum: ["high", "medium", "low"] },
+  },
+  required: ["title", "items", "tax", "tip", "subtotal", "total", "confidence"],
+};
 
 const PROMPT = `
 You are a receipt parser. Extract the following from this receipt image and return ONLY valid JSON with no markdown or extra text:
@@ -53,7 +78,7 @@ export async function parseReceiptFromGcs(
   const generativeModel = vertexAI.getGenerativeModel(
     {
       model: MODEL,
-      generationConfig: { responseMimeType: "application/json" },
+      generationConfig: { responseMimeType: "application/json", responseSchema: RECEIPT_SCHEMA },
     },
     {
       customHeaders: new Headers({ "X-Vertex-AI-LLM-Shared-Request-Type": "shared" }),
