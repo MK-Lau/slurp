@@ -165,7 +165,7 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { uid, email } = req.user;
-      const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "20"), 10) || 20, 1), 100);
+      const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "5"), 10) || 5, 1), 100);
       const cursorCreated = req.query.cursorCreated as string | undefined;
       const cursorInvited = req.query.cursorInvited as string | undefined;
 
@@ -192,9 +192,9 @@ router.get(
         .map((d) => normalizeSlurp(d.data()!))
         .map((d) => sanitizeSlurpForResponse(d, uid, email));
 
+      const hasMoreInvited = invitedSnap.docs.length > limit;
       const hostedIds = new Set(hostedSnap.docs.map((d) => d.id));
       const filteredInvitedDocs = invitedSnap.docs.filter((d) => !hostedIds.has(d.id));
-      const hasMoreInvited = filteredInvitedDocs.length > limit;
       const invitedDocs = hasMoreInvited ? filteredInvitedDocs.slice(0, limit) : filteredInvitedDocs;
       const invited = invitedDocs
         .map((d) => normalizeSlurp(d.data()!))
