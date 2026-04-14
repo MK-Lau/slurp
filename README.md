@@ -2,6 +2,8 @@
 
 A receipt-splitting web app. Create a split, upload a receipt, invite participants, let everyone pick their items, and get a breakdown of who owes what including tax and tip.
 
+A hosted version is available at **[slurp.mklau.net](https://slurp.mklau.net)** — anyone is free to host their own copy using the instructions below.
+
 ## Features
 
 - **Receipt parsing** — upload a photo of a receipt and Gemini AI extracts all items and prices
