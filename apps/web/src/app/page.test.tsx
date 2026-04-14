@@ -27,12 +27,12 @@ jest.mock("next/navigation", () => ({
 describe("Home page", () => {
   it("renders the app title", () => {
     render(<Home />);
-    expect(screen.getByRole("heading", { name: /slurp/i })).toBeDefined();
+    expect(screen.getByRole("heading", { level: 1, name: /slurp/i })).toBeDefined();
   });
 
   it("renders sign-in button when unauthenticated", () => {
     render(<Home />);
-    expect(screen.getByRole("link", { name: /sign in/i })).toBeDefined();
+    expect(screen.getByRole("link", { name: /get started/i })).toBeDefined();
   });
 });
 
