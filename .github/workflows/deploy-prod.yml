@@ -70,8 +70,8 @@ jobs:
     steps:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       - name: Resolve image tag
         id: tag
@@ -84,11 +84,11 @@ jobs:
 
       - name: Deploy to Cloud Run (prod)
         run: |
-          IMAGE="${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-api:${{ steps.tag.outputs.value }}"
+          IMAGE="${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-api:${{ steps.tag.outputs.value }}"
           gcloud run deploy slurp-api-prod \
             --image="${IMAGE}" \
             --region="${{ vars.GCP_REGION }}" \
-            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
             --quiet
 
   deploy-web-prod:
@@ -99,8 +99,8 @@ jobs:
     steps:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       - name: Resolve image tag
         id: tag
@@ -113,11 +113,11 @@ jobs:
 
       - name: Deploy to Cloud Run (prod)
         run: |
-          IMAGE="${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-web:${{ steps.tag.outputs.value }}"
+          IMAGE="${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-web:${{ steps.tag.outputs.value }}"
           gcloud run deploy slurp-web-prod \
             --image="${IMAGE}" \
             --region="${{ vars.GCP_REGION }}" \
-            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
             --quiet
 
   tag-api-prod-latest:
@@ -127,8 +127,8 @@ jobs:
     steps:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       - name: Resolve image tag
         id: tag
@@ -141,10 +141,10 @@ jobs:
 
       - name: Retag as prod-latest
         run: |
-          SOURCE="${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-api:${{ steps.tag.outputs.value }}"
+          SOURCE="${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-api:${{ steps.tag.outputs.value }}"
           gcloud artifacts docker tags add "${SOURCE}" \
-            "${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-api:prod-latest" \
-            --project="${{ vars.GCP_PROJECT_ID }}"
+            "${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-api:prod-latest" \
+            --project="${{ secrets.GCP_PROJECT_ID }}"
 
   tag-web-prod-latest:
     name: tag-web-prod-latest
@@ -153,8 +153,8 @@ jobs:
     steps:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       - name: Resolve image tag
         id: tag
@@ -167,10 +167,10 @@ jobs:
 
       - name: Retag as prod-latest
         run: |
-          SOURCE="${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-web:${{ steps.tag.outputs.value }}"
+          SOURCE="${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-web:${{ steps.tag.outputs.value }}"
           gcloud artifacts docker tags add "${SOURCE}" \
-            "${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-web:prod-latest" \
-            --project="${{ vars.GCP_PROJECT_ID }}"
+            "${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-web:prod-latest" \
+            --project="${{ secrets.GCP_PROJECT_ID }}"
 
   deploy-receipt-processor-prod:
     name: deploy-receipt-processor-prod
@@ -180,8 +180,8 @@ jobs:
     steps:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       - name: Resolve image tag
         id: tag
@@ -194,11 +194,11 @@ jobs:
 
       - name: Deploy to Cloud Run (prod)
         run: |
-          IMAGE="${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-receipt-processor:${{ steps.tag.outputs.value }}"
+          IMAGE="${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-receipt-processor:${{ steps.tag.outputs.value }}"
           gcloud run deploy slurp-receipt-processor-prod \
             --image="${IMAGE}" \
             --region="${{ vars.GCP_REGION }}" \
-            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
             --quiet
 
   tag-receipt-processor-prod-latest:
@@ -208,8 +208,8 @@ jobs:
     steps:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       - name: Resolve image tag
         id: tag
@@ -222,10 +222,10 @@ jobs:
 
       - name: Retag as prod-latest
         run: |
-          SOURCE="${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-receipt-processor:${{ steps.tag.outputs.value }}"
+          SOURCE="${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-receipt-processor:${{ steps.tag.outputs.value }}"
           gcloud artifacts docker tags add "${SOURCE}" \
-            "${{ vars.ARTIFACT_REGISTRY_URL }}/slurp-receipt-processor:prod-latest" \
-            --project="${{ vars.GCP_PROJECT_ID }}"
+            "${{ secrets.ARTIFACT_REGISTRY_URL }}/slurp-receipt-processor:prod-latest" \
+            --project="${{ secrets.GCP_PROJECT_ID }}"
 
   deploy-firebase-hosting-prod:
     name: deploy-firebase-hosting-prod
@@ -237,10 +237,10 @@ jobs:
 
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       - name: Deploy Firebase Hosting
         run: |
           npm install -g firebase-tools
-          firebase deploy --only hosting:slurp-prod --project "${{ vars.GCP_PROJECT_ID }}"
+          firebase deploy --only hosting:slurp-prod --project "${{ secrets.GCP_PROJECT_ID }}"
