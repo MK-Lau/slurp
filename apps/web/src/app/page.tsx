@@ -45,9 +45,7 @@ export default function Home(): React.JSX.Element {
       {/* Hero */}
       <section className="flex flex-col items-center text-center px-6 pt-20 pb-16">
         <h1 className="text-5xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Slurp 🍜</h1>
-        <p className="mt-4 text-xl text-gray-500 dark:text-gray-400 max-w-sm">
-          Split restaurant bills with friends — no math, no awkward Venmo requests.
-        </p>
+        <p className="mt-4 text-xl text-gray-500 dark:text-gray-400">Split bills effortlessly.</p>
         <div className="mt-8">
           {loading ? (
             <div className="h-12 w-36 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse" />
@@ -99,28 +97,6 @@ export default function Home(): React.JSX.Element {
         </ol>
       </section>
 
-      {/* Features */}
-      <section className="max-w-2xl mx-auto px-6 pb-20">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-purple-600 dark:text-purple-400 text-center mb-8">
-          Why Slurp
-        </h2>
-        <ul className="grid sm:grid-cols-2 gap-4">
-          {[
-            { icon: "🤖", title: "AI receipt parsing", body: "Snap a photo and every line item is read automatically — no typing required." },
-            { icon: "⚖️", title: "Fair tax & tip splits", body: "Each person's share of tax and tip scales with what they ordered." },
-            { icon: "🔗", title: "No app to download", body: "Guests join via a link — no account required to claim items." },
-            { icon: "✅", title: "Everyone confirms their share", body: "Each person reviews and confirms what they owe before the bill is settled." },
-          ].map(({ icon, title, body }) => (
-            <li key={title} className="flex gap-3 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-              <span className="text-xl shrink-0">{icon}</span>
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{title}</h3>
-                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{body}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }
