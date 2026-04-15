@@ -66,37 +66,6 @@ export default function Home(): React.JSX.Element {
           )}
         </div>
       </section>
-
-      {/* How it works */}
-      <section className="max-w-2xl mx-auto px-6 pb-16">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-purple-600 dark:text-purple-400 text-center mb-8">
-          How it works
-        </h2>
-        <ol className="grid sm:grid-cols-3 gap-8 text-center">
-          <li className="flex flex-col items-center gap-3">
-            <span className="text-3xl">📸</span>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Snap the receipt</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Upload a photo and Slurp reads every line item automatically.
-            </p>
-          </li>
-          <li className="flex flex-col items-center gap-3">
-            <span className="text-3xl">👥</span>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Invite your group</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Share a link. Everyone joins and taps the items they ordered.
-            </p>
-          </li>
-          <li className="flex flex-col items-center gap-3">
-            <span className="text-3xl">💸</span>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Everyone pays their share</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Tax and tip are split proportionally. Slurp tells each person exactly what they owe.
-            </p>
-          </li>
-        </ol>
-      </section>
-
     </div>
   );
 }
