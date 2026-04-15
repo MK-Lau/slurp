@@ -292,6 +292,11 @@ resource "google_identity_platform_config" "default" {
     }
   }
 
+  lifecycle {
+    # start_time is a rolling timestamp managed outside Terraform
+    ignore_changes = [quota]
+  }
+
   depends_on = [google_project_service.apis]
 }
 
