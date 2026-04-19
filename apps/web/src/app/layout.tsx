@@ -51,10 +51,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <AuthProvider>
-          <div className="flex min-h-screen bg-slate-50 dark:bg-gray-950">
+          <div className="flex min-h-screen dark:bg-gray-950">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0">
-              <div className="lg:hidden h-[53px] shrink-0" />
+              <div className="lg:hidden h-14 shrink-0" />
               <main className="flex-1 overflow-y-auto">{children}</main>
             </div>
           </div>

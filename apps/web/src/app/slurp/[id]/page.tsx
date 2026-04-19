@@ -2,15 +2,27 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSlurp, getSlurpPreview } from "@/lib/slurps";
 import { getProfile } from "@/lib/users";
+import { Badge, PageFade, TabBar } from "@/components/ui";
 import type { Slurp, SlurpPreviewResponse, GetSlurpResponse } from "@slurp/types";
 import HostView from "./_components/HostView";
 import GuestView from "./_components/GuestView";
 import JoinModal from "./_components/JoinModal";
 
 const POLL_INTERVAL_MS = 2000;
+
+function relativeDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff < 7) return `${diff} days ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function SlurpPageContent(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +36,17 @@ function SlurpPageContent(): React.JSX.Element {
   const [preview, setPreview] = useState<SlurpPreviewResponse | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinDefaultName, setJoinDefaultName] = useState<string | undefined>(undefined);
+  const [tab, setTab] = useState<string>("manage");
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Compute role from slurp (may be null during loading)
+  const myParticipant = slurp?.participants.find((p) => user?.uid && p.uid === user.uid);
+  const isHost = myParticipant?.role === "host";
+
+  // Reset tab when slurp id or role changes — must be before any conditional returns
+  useEffect(() => {
+    setTab(isHost ? "manage" : "items");
+  }, [id, isHost]);
 
   function onSlurpUpdate(d: Slurp): void {
     setSlurp(d);
@@ -39,9 +61,7 @@ function SlurpPageContent(): React.JSX.Element {
     if (authLoading) return;
 
     if (!user) {
-      const redirectUrl = token
-        ? `/slurp/${id}?token=${token}`
-        : `/slurp/${id}`;
+      const redirectUrl = token ? `/slurp/${id}?token=${token}` : `/slurp/${id}`;
       router.replace(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
       return;
     }
@@ -59,14 +79,11 @@ function SlurpPageContent(): React.JSX.Element {
           }
 
           if (previewData && !cancelled) {
-            // Try to load the slurp to check if already a participant
             try {
               current = await getSlurp(id);
               if (cancelled) return;
               onSlurpUpdate(current);
-              // Already a participant, fall through to polling below
             } catch {
-              // Not a participant — show join modal
               if (!cancelled) {
                 const profile = await getProfile().catch(() => ({}));
                 setJoinDefaultName(
@@ -79,7 +96,6 @@ function SlurpPageContent(): React.JSX.Element {
               return;
             }
           } else if (!cancelled) {
-            // Bad token or no preview, try loading directly
             current = await getSlurp(id);
             if (cancelled) return;
             onSlurpUpdate(current);
@@ -92,7 +108,6 @@ function SlurpPageContent(): React.JSX.Element {
           onSlurpUpdate(current);
         }
 
-        // Poll until receipt processing completes
         while (current.receiptStatus === "processing" || current.receiptStatus === "pending") {
           await new Promise<void>((resolve) => {
             pollRef.current = setTimeout(resolve, POLL_INTERVAL_MS);
@@ -123,21 +138,20 @@ function SlurpPageContent(): React.JSX.Element {
     setShowJoinModal(false);
     setPreview(null);
     onSlurpUpdate(d);
-    // Navigate without the token so the effect re-runs and starts receipt polling if needed.
     router.replace(`/slurp/${id}`);
   }
 
   if (authLoading || (!slurp && !error && !showJoinModal)) {
     return (
-      <main className="max-w-2xl mx-auto mt-8 sm:mt-16 px-4 sm:p-6">
-        <p className="text-gray-400 dark:text-gray-500">Loading...</p>
+      <main className="max-w-2xl mx-auto px-4 py-8">
+        <p className="text-gray-400 text-sm">Loading…</p>
       </main>
     );
   }
 
   if (error) {
     return (
-      <main className="max-w-2xl mx-auto mt-8 sm:mt-16 px-4 sm:p-6">
+      <main className="max-w-2xl mx-auto px-4 py-8">
         <p className="text-red-600">{error}</p>
       </main>
     );
@@ -145,7 +159,7 @@ function SlurpPageContent(): React.JSX.Element {
 
   if (showJoinModal && preview) {
     return (
-      <main className="max-w-2xl mx-auto mt-8 sm:mt-16 px-4 sm:p-6">
+      <main className="max-w-2xl mx-auto px-4 py-8">
         <JoinModal
           slurpId={id}
           inviteToken={token!}
@@ -160,23 +174,68 @@ function SlurpPageContent(): React.JSX.Element {
   }
 
   const d = slurp!;
-  const myParticipant = d.participants.find(
-    (p) => user?.uid && p.uid === user.uid
-  );
-  const isHost = myParticipant?.role === "host";
+
+  const confirmed = d.participants.filter((p) => p.status === "confirmed").length;
+  const total = d.participants.length;
+  const allConfirmed = confirmed === total;
+  const someConfirmed = confirmed > 0 && !allConfirmed;
+
+  const hostTabs = [
+    { key: "manage", label: "Manage" },
+    { key: "items", label: "My Items" },
+    { key: "summary", label: "Summary" },
+  ];
+  const guestTabs = [
+    { key: "items", label: "My Items" },
+    { key: "summary", label: "Summary" },
+  ];
+  const tabs = isHost ? hostTabs : guestTabs;
+  const validTab = tabs.find((t) => t.key === tab) ? tab : tabs[0].key;
+
   return (
-    <main className="max-w-2xl mx-auto mt-4 sm:mt-8 px-4 sm:p-6">
-      <div className="mb-2">
-        <h1 className="text-3xl font-bold tracking-tight">{d.title}</h1>
-      </div>
-      {isHost ? (
-        <HostView slurp={d} viewerUid={user!.uid} onUpdate={onSlurpUpdate} />
-      ) : myParticipant ? (
-        <GuestView slurp={d} participant={myParticipant} onUpdate={onSlurpUpdate} />
-      ) : (
-        <p className="text-gray-500 dark:text-gray-400">You are not a participant in this slurp.</p>
-      )}
-    </main>
+    <PageFade key={d.id}>
+      <main className="max-w-2xl mx-auto px-4 py-6">
+        {/* Back */}
+        <Link
+          href="/slurp"
+          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors mb-5"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          All Slurps
+        </Link>
+
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{d.title}</h1>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {isHost && <Badge color="purple">Host</Badge>}
+            {allConfirmed ? (
+              <Badge color="green">All confirmed</Badge>
+            ) : someConfirmed ? (
+              <Badge color="amber">{confirmed}/{total} confirmed</Badge>
+            ) : (
+              <Badge color="gray">Pending</Badge>
+            )}
+            <span className="text-xs text-gray-400">{relativeDate(d.createdAt)}</span>
+          </div>
+        </div>
+
+        {/* Tab bar */}
+        <TabBar tabs={tabs} active={validTab} onChange={setTab} />
+
+        <div className="mt-6">
+          {isHost ? (
+            <HostView slurp={d} viewerUid={user!.uid} onUpdate={onSlurpUpdate} tab={validTab} onTabChange={setTab} />
+          ) : myParticipant ? (
+            <GuestView slurp={d} participant={myParticipant} onUpdate={onSlurpUpdate} tab={validTab} />
+          ) : (
+            <p className="text-gray-500">You are not a participant in this Slurp.</p>
+          )}
+        </div>
+      </main>
+    </PageFade>
   );
 }
 

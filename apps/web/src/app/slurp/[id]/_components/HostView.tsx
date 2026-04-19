@@ -3,28 +3,29 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Slurp } from "@slurp/types";
+import { CURRENCY_MAP } from "@slurp/types";
 import ItemList from "./ItemList";
 import ItemForm from "./ItemForm";
 import InviteLink from "./InviteLink";
 import ParticipantList from "./ParticipantList";
 import TaxTipForm from "./TaxTipForm";
 import CurrencyConversionForm from "./CurrencyConversionForm";
-import GuestView from "./GuestView";
+import SelectionPanel from "./SelectionPanel";
 import SummaryView from "./SummaryView";
 import DeleteSlurpModal from "./DeleteSlurpModal";
 import { dismissReceiptWarning, updateSlurp } from "@/lib/slurps";
+import { Btn, Card, Divider, SectionHeader, TextInput } from "@/components/ui";
 
 interface Props {
   slurp: Slurp;
   viewerUid: string;
   onUpdate: (d: Slurp) => void;
+  tab: string;
+  onTabChange: (tab: string) => void;
 }
 
-type Tab = "manage" | "participate" | "summary";
-
-export default function HostView({ slurp, viewerUid, onUpdate }: Props): React.JSX.Element {
+export default function HostView({ slurp, viewerUid, onUpdate, tab }: Props): React.JSX.Element {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("manage");
   const [titleDraft, setTitleDraft] = useState(slurp.title);
   const [savingTitle, setSavingTitle] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -58,109 +59,105 @@ export default function HostView({ slurp, viewerUid, onUpdate }: Props): React.J
     onUpdate(updated);
   }
 
-  const tabClass = (t: Tab): string =>
-    `flex-1 py-3 text-base font-semibold transition-colors duration-150 ${
-      tab === t
-        ? "bg-purple-600 text-white"
-        : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-    }`;
+  function renderTabContent(): React.JSX.Element {
+    if (tab === "items") {
+      return hostParticipant ? (
+        <SelectionPanel slurp={slurp} participant={hostParticipant} onUpdate={onUpdate} />
+      ) : (
+        <p className="text-sm text-gray-400">You are not listed as a participant yet.</p>
+      );
+    }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-        <button className={tabClass("manage")} onClick={() => setTab("manage")}>
-          Manage
-        </button>
-        <button className={tabClass("participate")} onClick={() => setTab("participate")}>
-          My Items
-        </button>
-        <button className={tabClass("summary")} onClick={() => setTab("summary")}>
-          Summary
-        </button>
-      </div>
+    if (tab === "summary") {
+      return <SummaryView slurp={slurp} isHost={true} viewerUid={viewerUid} onUpdate={onUpdate} />;
+    }
 
-      <section>
-        <h2 className="font-semibold text-lg">Invite Guests</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Share this link to invite guests:</p>
-        <InviteLink slurpId={slurp.id} inviteToken={slurp.inviteToken} />
-      </section>
+    // Manage tab
+    return (
+      <div className="space-y-6">
+        {/* Receipt warning */}
+        {showWarning && (
+          <div className="relative rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 text-center">
+            <p className="font-medium">⚠ Receipt image was unclear</p>
+            <p className="text-xs mt-0.5">Please review items before confirming.</p>
+            <button
+              onClick={() => void handleDismissWarning()}
+              className="absolute top-2 right-3 text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 font-medium"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
-      {tab === "manage" && (
-        <div className="space-y-8">
-          <section>
-            <h2 className="font-semibold text-lg">Name</h2>
-            <input
-              type="text"
-              className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-              value={titleDraft}
-              maxLength={64}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={() => void saveTitleDraft()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.currentTarget.blur(); }
-                if (e.key === "Escape") { setTitleDraft(slurp.title); e.currentTarget.blur(); }
-              }}
-              disabled={savingTitle}
-              aria-label="Slurp name"
-            />
-            {savingTitle && <p className="text-xs text-gray-400 mt-1">Saving…</p>}
-          </section>
-          {showWarning && (
-            <div className="relative rounded-lg bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 px-4 py-4 text-sm text-yellow-800 dark:text-yellow-300 text-center">
-              <p className="font-medium">⚠ Receipt image was unclear</p>
-              <p>Please review items before confirming.</p>
-              <button onClick={() => void handleDismissWarning()} className="absolute top-2 right-3 text-yellow-600 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-100 font-medium">
-                Dismiss
-              </button>
+        {/* Name */}
+        <div>
+          <SectionHeader title="Name" />
+          <TextInput
+            value={titleDraft}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onBlur={() => void saveTitleDraft()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) e.currentTarget.blur();
+              if (e.key === "Escape") { setTitleDraft(slurp.title); e.currentTarget.blur(); }
+            }}
+            disabled={savingTitle}
+            maxLength={64}
+            aria-label="Slurp name"
+          />
+          {savingTitle && <p className="text-xs text-gray-400 mt-1">Saving…</p>}
+        </div>
+
+        {/* Tax & Tip */}
+        <div>
+          <SectionHeader title="Tax & Tip" />
+          <TaxTipForm slurp={slurp} onUpdate={onUpdate} />
+        </div>
+
+        {/* Currency */}
+        <div>
+          <SectionHeader title="Currency" />
+          {slurp.currencyConversion.enabled && (
+            <div className="mb-3 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 px-4 py-3">
+              <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-0.5">Currency Conversion Active</p>
+              <p className="text-sm text-purple-800 dark:text-purple-200">
+                Billed in {CURRENCY_MAP[slurp.currencyConversion.billedCurrency]?.name ?? slurp.currencyConversion.billedCurrency}
+                {" · "}Home: {CURRENCY_MAP[slurp.currencyConversion.homeCurrency]?.name ?? slurp.currencyConversion.homeCurrency}
+                {" · "}Rate: 1 {slurp.currencyConversion.homeCurrency} = {slurp.currencyConversion.exchangeRate} {slurp.currencyConversion.billedCurrency}
+              </p>
             </div>
           )}
-          <section>
-            <h2 className="font-semibold text-lg">Tax &amp; Tip</h2>
-            <TaxTipForm slurp={slurp} onUpdate={onUpdate} />
-          </section>
-
-          <section>
-            <h2 className="font-semibold text-lg">Currency</h2>
-            <div className="mt-2">
-              <CurrencyConversionForm slurp={slurp} onUpdate={onUpdate} />
-            </div>
-          </section>
-
-          <section>
-            <h2 className="font-semibold text-lg">Items</h2>
-<ItemList slurp={slurp} isHost onUpdate={onUpdate} />
-            <ItemForm slurp={slurp} onUpdate={onUpdate} />
-          </section>
-
-          <section>
-            <h2 className="font-semibold text-lg">Guests</h2>
-            <ParticipantList slurp={slurp} isHost onUpdate={onUpdate} />
-          </section>
-
-          <section className="border-t border-red-200 dark:border-red-900 pt-6">
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="rounded bg-red-600 px-4 py-2 text-white text-sm font-medium hover:bg-red-700"
-            >
-              Delete slurp
-            </button>
-          </section>
-
-          <div className="pb-16" />
+          <CurrencyConversionForm slurp={slurp} onUpdate={onUpdate} />
         </div>
-      )}
 
-      {tab === "participate" && hostParticipant && (
-        <GuestView slurp={slurp} participant={hostParticipant} onUpdate={onUpdate} />
-      )}
+        {/* Items */}
+        <div>
+          <SectionHeader title="Items" />
+          <Card className="divide-y divide-gray-50 overflow-hidden">
+            <ItemList slurp={slurp} isHost onUpdate={onUpdate} />
+            <div className="p-3">
+              <ItemForm slurp={slurp} onUpdate={onUpdate} />
+            </div>
+          </Card>
+        </div>
 
-      {tab === "participate" && !hostParticipant && (
-        <p className="text-sm text-gray-400 dark:text-gray-500">You are not listed as a participant yet.</p>
-      )}
+        {/* Guests */}
+        <div>
+          <SectionHeader title="Guests" />
+          <ParticipantList slurp={slurp} isHost onUpdate={onUpdate} />
+        </div>
 
-      {tab === "summary" && (
-        <SummaryView slurp={slurp} isHost={true} viewerUid={viewerUid} onUpdate={onUpdate} />
-      )}
+        <Divider />
+        <Btn variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Delete Slurp</Btn>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 pb-12">
+      {/* Invite link — always visible on all tabs */}
+      <InviteLink slurpId={slurp.id} inviteToken={slurp.inviteToken} />
+
+      {renderTabContent()}
 
       {showDeleteModal && (
         <DeleteSlurpModal
