@@ -310,7 +310,7 @@ module "cloud_run_web" {
     FIREBASE_AUTH_DOMAIN = each.key == "prod" && var.custom_domain != "" ? var.custom_domain : data.google_firebase_web_app_config.default.auth_domain
     FIREBASE_PROJECT_ID  = var.project_id
     FIREBASE_APP_ID      = google_firebase_web_app.default.app_id
-    APP_URL              = each.key == "prod" && var.custom_domain != "" ? "https://${var.custom_domain}" : ""
+    APP_URL              = each.key == "prod" ? "https://slurp.mklau.net" : "https://slurp-${each.key}.firebaseapp.com"
     API_URL              = "https://slurp-api-${each.key}-${data.google_project.default.number}.${var.region}.run.app"
   }
 

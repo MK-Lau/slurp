@@ -2,6 +2,8 @@
 
 A receipt-splitting web app. Create a split, upload a receipt, invite participants, let everyone pick their items, and get a breakdown of who owes what including tax and tip.
 
+A hosted version is available at **[slurp.mklau.net](https://slurp.mklau.net)** — anyone is free to host their own copy using the instructions below.
+
 ## Features
 
 - **Receipt parsing** — upload a photo of a receipt and Gemini AI extracts all items and prices
@@ -215,14 +217,21 @@ terraform apply -var-file=vars/main.tfvars
 
 This provisions Cloud Run, Firestore, Cloud Storage, Pub/Sub, Artifact Registry, IAM service accounts, and Workload Identity Federation for GitHub Actions.
 
-### 4. Set GitHub Actions variables
+### 4. Set GitHub Actions variables and secrets
 
-After `terraform apply`, set these repository variables in GitHub (Settings → Secrets and variables → Actions):
+After `terraform apply`, configure GitHub (Settings → Secrets and variables → Actions).
+
+Set as a **variable**:
 
 | Variable | Value |
 |---|---|
-| `GCP_PROJECT_ID` | your GCP project ID |
 | `GCP_REGION` | `us-central1` |
+
+Set as **secrets** (so they're masked in workflow logs):
+
+| Secret | Value |
+|---|---|
+| `GCP_PROJECT_ID` | your GCP project ID |
 | `GCP_SA_EMAIL` | output of `terraform output github_actions_service_account_email` |
 | `WIF_PROVIDER` | output of `terraform output workload_identity_provider` |
 | `ARTIFACT_REGISTRY_URL` | output of `terraform output artifact_registry_url` |

@@ -25,14 +25,11 @@ jest.mock("next/navigation", () => ({
 }));
 
 describe("Home page", () => {
-  it("renders the app title", () => {
-    render(<Home />);
-    expect(screen.getByRole("heading", { name: /slurp/i })).toBeDefined();
-  });
+  beforeEach(() => { stableRouter.replace.mockClear(); });
 
-  it("renders sign-in button when unauthenticated", () => {
-    render(<Home />);
-    expect(screen.getByRole("link", { name: /sign in/i })).toBeDefined();
+  it("redirects unauthenticated users to /login", async () => {
+    await act(async () => { render(<Home />); });
+    expect(stableRouter.replace).toHaveBeenCalledWith("/login");
   });
 });
 
@@ -71,12 +68,12 @@ describe("Home page — magic link handling", () => {
     expect(stableRouter.replace).toHaveBeenCalledWith(`/login${search}`);
   });
 
-  it("does nothing when oobCode is absent", async () => {
+  it("redirects to /login when oobCode is absent", async () => {
     window.history.pushState({}, "", "?mode=signIn");
 
     await act(async () => { render(<Home />); });
 
-    expect(stableRouter.replace).not.toHaveBeenCalled();
+    expect(stableRouter.replace).toHaveBeenCalledWith("/login");
   });
 
   it("falls through to router.replace when continueUrl is same-origin (http://localhost)", async () => {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addItem } from "@/lib/slurps";
 import type { Slurp } from "@slurp/types";
 import { CURRENCY_MAP } from "@slurp/types";
+import { Btn, NumberInput, TextInput } from "@/components/ui";
 
 interface Props {
   slurp: Slurp;
@@ -34,37 +35,28 @@ export default function ItemForm({ slurp, onUpdate }: Props): React.JSX.Element 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row sm:items-end gap-2 mt-3">
-      <div className="flex-1">
-        <input
-          className="w-full border rounded px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-          placeholder="Item name"
-          value={name}
-          maxLength={64}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-      </div>
-      <div className="flex items-center border rounded dark:border-gray-600 overflow-hidden w-full sm:w-32">
-        <span className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border-r dark:border-gray-600 select-none">{billedSymbol}</span>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          className="flex-1 px-2 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 outline-none min-w-0"
-          placeholder="0.00"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          required
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full sm:w-auto rounded bg-green-600 px-4 py-2 text-white text-sm hover:bg-green-700 disabled:opacity-50"
-      >
-        Add
-      </button>
+    <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+      <TextInput
+        className="flex-1"
+        placeholder="Item name"
+        value={name}
+        maxLength={64}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") void handleSubmit(e); }}
+        required
+      />
+      <NumberInput
+        prefix={billedSymbol}
+        className="w-28"
+        placeholder="0.00"
+        step="0.01"
+        min="0"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") void handleSubmit(e); }}
+        required
+      />
+      <Btn type="submit" variant="primary" size="sm" disabled={submitting}>Add</Btn>
       {error && <p className="text-red-600 text-xs">{error}</p>}
     </form>
   );
