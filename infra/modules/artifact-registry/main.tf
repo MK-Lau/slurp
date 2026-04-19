@@ -14,7 +14,7 @@ resource "google_artifact_registry_repository" "images" {
   }
 
   cleanup_policies {
-    id     = "keep-last-10"
+    id     = "keep-last-5"
     action = "KEEP"
     most_recent_versions {
       keep_count = 5

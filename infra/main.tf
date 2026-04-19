@@ -4,11 +4,11 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.0"
+      version = "~> 7.0"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "~> 5.0"
+      version = "~> 7.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -289,6 +289,14 @@ resource "google_identity_platform_config" "default" {
     email {
       enabled           = true
       password_required = false
+    }
+  }
+
+  quota {
+    sign_up_quota_config {
+      quota          = 20
+      quota_duration = "86400s"
+      start_time     = "2026-04-15T01:13:00Z"
     }
   }
 
