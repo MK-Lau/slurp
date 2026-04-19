@@ -17,6 +17,7 @@ interface Props {
 export default function SelectionPanel({ slurp, participant, onUpdate }: Props): React.JSX.Element {
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hostVenmoUsername, setHostVenmoUsername] = useState<string | undefined>();
 
@@ -29,7 +30,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
     return () => { cancelled = true; };
   }, [participant.status, participant.role, slurp.id]);
 
-  const isConfirmed = participant.status === "confirmed";
+  const isConfirmed = participant.status === "confirmed" && !editing;
 
   async function handleToggle(itemId: string): Promise<void> {
     if (isConfirmed) return;
@@ -53,6 +54,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
     setError(null);
     try {
       const updated = await confirmSlurp(slurp.id);
+      setEditing(false);
       onUpdate(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to confirm");
@@ -79,13 +81,16 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
 
   return (
     <div className="space-y-4 pb-12">
-      {isConfirmed && (
+      {participant.status === "confirmed" && !editing && (
         <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 px-4 py-3 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300 font-medium">
           <span>✓</span>
           <span>You've confirmed your selections</span>
-          <span className="ml-auto text-sm font-semibold px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300">
-            Confirmed ✓
-          </span>
+          <button
+            onClick={() => setEditing(true)}
+            className="ml-auto text-xs font-medium px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+          >
+            Make edits
+          </button>
         </div>
       )}
 
@@ -170,7 +175,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
       {saving && <p className="text-xs text-gray-400">Saving…</p>}
       {error && <p className="text-xs text-red-600">{error}</p>}
 
-      {isConfirmed ? (
+      {participant.status === "confirmed" && !editing ? (
         <div className="flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -197,7 +202,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
           onClick={() => void handleDone()}
           disabled={confirming || saving || participant.selectedItemIds.length === 0}
         >
-          {confirming ? "Saving…" : "Done — confirm selections"}
+          {confirming ? "Saving…" : editing ? "Done — re-confirm selections" : "Done — confirm selections"}
         </Btn>
       )}
     </div>
