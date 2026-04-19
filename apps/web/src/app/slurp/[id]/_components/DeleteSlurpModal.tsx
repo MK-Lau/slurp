@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { deleteSlurp } from "@/lib/slurps";
+import { Btn, Card } from "@/components/ui";
 
 interface Props {
   slurpId: string;
@@ -21,38 +22,28 @@ export default function DeleteSlurpModal({ slurpId, slurpTitle, onDone, onCancel
       await deleteSlurp(slurpId);
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete slurp");
+      setError(err instanceof Error ? err.message : "Failed to delete Slurp");
       setLoading(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-sm p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Delete &ldquo;{slurpTitle}&rdquo;?</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          This will permanently delete the slurp and all its items. This cannot be undone.
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
+      <Card className="p-6 max-w-xs w-full shadow-xl">
+        <p className="font-semibold text-gray-900 mb-1">Delete &ldquo;{slurpTitle}&rdquo;?</p>
+        <p className="text-sm text-gray-500 mb-5">
+          This will permanently remove this Slurp and all its items. This can&rsquo;t be undone.
         </p>
-
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={() => void handleDelete()}
-            disabled={loading}
-            className="w-full rounded bg-red-600 px-4 py-2 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-          >
-            {loading ? "Deleting…" : "Delete slurp"}
-          </button>
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="w-full rounded border border-gray-300 dark:border-gray-600 px-4 py-2 text-gray-700 dark:text-gray-300 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-          >
+        {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+        <div className="flex gap-2">
+          <Btn variant="danger" className="flex-1" onClick={() => void handleDelete()} disabled={loading}>
+            {loading ? "Deleting…" : "Delete"}
+          </Btn>
+          <Btn variant="secondary" className="flex-1" onClick={onCancel} disabled={loading}>
             Cancel
-          </button>
+          </Btn>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

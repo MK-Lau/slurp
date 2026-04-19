@@ -1,77 +1,97 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Slurp, Participant } from "@slurp/types";
-import { CURRENCY_MAP } from "@slurp/types";
-import ParticipantList from "./ParticipantList";
+import { computeParticipantBreakdown, CURRENCY_MAP } from "@slurp/types";
 import SelectionPanel from "./SelectionPanel";
-import { formatAmount } from "@/lib/currency";
+import SummaryView from "./SummaryView";
+import ParticipantList from "./ParticipantList";
+import { Card, Divider } from "@/components/ui";
 
 interface Props {
   slurp: Slurp;
   participant: Participant;
   onUpdate: (d: Slurp) => void;
+  tab: string;
 }
 
-export default function GuestView({ slurp, participant, onUpdate }: Props): React.JSX.Element {
-  const [billExpanded, setBillExpanded] = useState(false);
+function fmt(n: number): string {
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
-  const billSubtotal = slurp.items.reduce((s, i) => s + i.price, 0);
-  const billTotal = billSubtotal + slurp.taxAmount + slurp.tipAmount;
+function TotalsAccordion({ slurp, participant }: { slurp: Slurp; participant: Participant }): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+
+  const breakdown = useMemo(() => {
+    const itemMap = new Map(slurp.items.map((i) => [i.id, i]));
+    const selectorCounts = new Map<string, number>();
+    for (const p of slurp.participants) {
+      for (const id of p.selectedItemIds) {
+        selectorCounts.set(id, (selectorCounts.get(id) ?? 0) + 1);
+      }
+    }
+    const totalSubtotal = slurp.participants.reduce((acc, p) =>
+      acc + p.selectedItemIds.reduce((s, id) => {
+        const item = itemMap.get(id);
+        return item ? s + item.price / Math.max(selectorCounts.get(id) ?? 1, 1) : s;
+      }, 0), 0);
+    return computeParticipantBreakdown(slurp, participant, totalSubtotal, selectorCounts);
+  }, [slurp, participant]);
+
+  const symbol = CURRENCY_MAP[slurp.currencyConversion?.billedCurrency ?? ""]?.symbol ?? "$";
 
   return (
-    <div className="space-y-8">
-      {slurp.currencyConversion.enabled && (
-        <div className="bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl px-4 py-3">
-          <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-0.5">Currency Conversion</p>
-          <p className="text-sm text-purple-800 dark:text-purple-200">
-            Billed in {CURRENCY_MAP[slurp.currencyConversion.billedCurrency]?.name ?? slurp.currencyConversion.billedCurrency}
-            {" · "}Home currency: {CURRENCY_MAP[slurp.currencyConversion.homeCurrency]?.name ?? slurp.currencyConversion.homeCurrency}
-            {" · "}Rate: 1 {slurp.currencyConversion.homeCurrency} = {slurp.currencyConversion.exchangeRate} {slurp.currencyConversion.billedCurrency}
-          </p>
-        </div>
-      )}
-      <section>
-        <h2 className="font-semibold text-lg">Participants</h2>
-        <ParticipantList slurp={slurp} />
-      </section>
-
-      {slurp.items.length > 0 && (
-        <div className="bg-gray-50/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => setBillExpanded((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100/60 dark:hover:bg-gray-700/40 transition-colors duration-150"
-          >
-            <span>{billExpanded ? "Hide totals" : "See totals"}</span>
-            <span className="text-xs">{billExpanded ? "▲" : "▼"}</span>
-          </button>
-          {billExpanded && (
-            <div className="px-4 pb-4 text-sm space-y-1 border-t border-gray-200 dark:border-gray-700 pt-3">
-              <div className="flex justify-between text-gray-400 dark:text-gray-500">
-                <span>Items subtotal</span>
-                <span>{formatAmount(billSubtotal, slurp.currencyConversion)}</span>
-              </div>
-              <div className="flex justify-between text-gray-400 dark:text-gray-500">
-                <span>Tax</span>
-                <span>{formatAmount(slurp.taxAmount, slurp.currencyConversion)}</span>
-              </div>
-              <div className="flex justify-between text-gray-400 dark:text-gray-500">
-                <span>Tip</span>
-                <span>{formatAmount(slurp.tipAmount, slurp.currencyConversion)}</span>
-              </div>
-              <div className="flex justify-between font-semibold text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-2 mt-1">
-                <span>Bill total</span>
-                <span>{formatAmount(billTotal, slurp.currencyConversion)}</span>
-              </div>
+    <Card className="overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+      >
+        <span>{open ? "Hide totals" : "See totals"}</span>
+        <svg
+          width="16" height="16" viewBox="0 0 16 16" fill="none"
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <Divider />
+          <div className="px-4 py-3 space-y-1.5 text-sm">
+            <div className="flex justify-between text-gray-600 dark:text-gray-400">
+              <span>Subtotal</span>
+              <span>{symbol}{fmt(breakdown.subtotal)}</span>
             </div>
-          )}
-        </div>
+            <div className="flex justify-between text-gray-600 dark:text-gray-400">
+              <span>Tax</span>
+              <span>{symbol}{fmt(breakdown.tax)}</span>
+            </div>
+            <div className="flex justify-between text-gray-600 dark:text-gray-400">
+              <span>Tip</span>
+              <span>{symbol}{fmt(breakdown.tip)}</span>
+            </div>
+            <Divider />
+            <div className="flex justify-between font-semibold text-purple-700">
+              <span>Your total</span>
+              <span>{symbol}{fmt(breakdown.total)}</span>
+            </div>
+          </div>
+        </>
       )}
+    </Card>
+  );
+}
 
-      <section>
-        <h2 className="font-semibold text-lg">Your Selections</h2>
-        <SelectionPanel slurp={slurp} participant={participant} onUpdate={onUpdate} />
-      </section>
+export default function GuestView({ slurp, participant, onUpdate, tab }: Props): React.JSX.Element {
+  if (tab === "summary") {
+    return <SummaryView slurp={slurp} isHost={false} viewerUid={participant.uid} onUpdate={onUpdate} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <ParticipantList slurp={slurp} />
+      <TotalsAccordion slurp={slurp} participant={participant} />
+      <SelectionPanel slurp={slurp} participant={participant} onUpdate={onUpdate} />
     </div>
   );
 }
