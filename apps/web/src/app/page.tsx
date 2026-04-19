@@ -41,5 +41,5 @@ export default function Home(): React.JSX.Element {
     }
   }, [router, user, loading]);
 
-  return </>;
+  return <></>;
 }
