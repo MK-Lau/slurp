@@ -21,4 +21,5 @@ firebase-debug.log
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
+!.claude/skills/
 .venv/
