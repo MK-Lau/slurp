@@ -1,4 +1,4 @@
-import rateLimit, { Store, Options, IncrementResponse } from "express-rate-limit";
+import rateLimit, { Store, Options, IncrementResponse, ipKeyGenerator } from "express-rate-limit";
 import type { Request, RequestHandler } from "express";
 import { FieldValue } from "@google-cloud/firestore";
 import { db } from "../firebase";
@@ -68,7 +68,7 @@ export const globalLimiter: RequestHandler = isProd ? rateLimit({
 export const receiptProcessHourlyLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   limit: 15,
-  keyGenerator: (req: Request) => req.user?.uid ?? req.ip ?? "anonymous",
+  keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_receiptProcess_hourly"),
   standardHeaders: "draft-7",
   legacyHeaders: false,
@@ -78,7 +78,7 @@ export const receiptProcessHourlyLimiter: RequestHandler = isProd ? rateLimit({
 export const receiptProcessDailyLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
   limit: 60,
-  keyGenerator: (req: Request) => req.user?.uid ?? req.ip ?? "anonymous",
+  keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_receiptProcess_daily"),
   standardHeaders: "draft-7",
   legacyHeaders: false,
@@ -90,7 +90,7 @@ export const receiptProcessDailyLimiter: RequestHandler = isProd ? rateLimit({
 export const createSlurpHourlyLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   limit: 10,
-  keyGenerator: (req: Request) => req.user?.uid ?? req.ip ?? "anonymous",
+  keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_createSlurp_hourly"),
   standardHeaders: "draft-7",
   legacyHeaders: false,
@@ -100,7 +100,7 @@ export const createSlurpHourlyLimiter: RequestHandler = isProd ? rateLimit({
 export const createSlurpDailyLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
   limit: 30,
-  keyGenerator: (req: Request) => req.user?.uid ?? req.ip ?? "anonymous",
+  keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_createSlurp_daily"),
   standardHeaders: "draft-7",
   legacyHeaders: false,
@@ -112,7 +112,7 @@ export const createSlurpDailyLimiter: RequestHandler = isProd ? rateLimit({
 export const addItemHourlyLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   limit: 200,
-  keyGenerator: (req: Request) => req.user?.uid ?? req.ip ?? "anonymous",
+  keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_addItem_hourly"),
   standardHeaders: "draft-7",
   legacyHeaders: false,
@@ -122,7 +122,7 @@ export const addItemHourlyLimiter: RequestHandler = isProd ? rateLimit({
 export const addItemDailyLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
   limit: 600,
-  keyGenerator: (req: Request) => req.user?.uid ?? req.ip ?? "anonymous",
+  keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_addItem_daily"),
   standardHeaders: "draft-7",
   legacyHeaders: false,
@@ -134,7 +134,7 @@ export const addItemDailyLimiter: RequestHandler = isProd ? rateLimit({
 export const joinLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   limit: 20,
-  keyGenerator: (req: Request) => req.user?.uid ?? req.ip ?? "anonymous",
+  keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_join"),
   standardHeaders: "draft-7",
   legacyHeaders: false,
