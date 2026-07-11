@@ -21,7 +21,7 @@ export default function ParticipantList({ slurp, isHost, onUpdate }: Props): Rea
           <div key={p.uid} className="flex items-center gap-3 px-4 py-3">
             <Avatar name={p.displayName ?? "?"} size="md" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">{p.displayName ?? "Unknown"}</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{p.displayName ?? "Unknown"}</p>
               <p className="text-xs text-gray-400">{p.role}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
