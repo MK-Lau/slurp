@@ -8,7 +8,7 @@ import { parseReceiptFromGcs } from "./gemini";
 
 const logger = pino();
 
-const MAX_ITEMS = 20;
+const MAX_ITEMS = 75;
 export const MEDIUM_CONFIDENCE_WARNING = "Receipt image was unclear — please review items before confirming.";
 
 export async function processReceipt(slurpId: string, gcsPath: string): Promise<void> {

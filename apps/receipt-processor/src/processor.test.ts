@@ -26,7 +26,7 @@ interface ParsedReceipt {
   confidence: "high" | "medium" | "low";
 }
 
-const MAX_ITEMS = 20;
+const MAX_ITEMS = 75;
 
 // ── Logic extracted from processor.ts ─────────────────────────────────────────
 
@@ -125,17 +125,17 @@ describe("mergeItems", () => {
     expect(result[0].name).toBe("Burger");
   });
 
-  it("caps combined items at 20", () => {
-    const existing = Array.from({ length: 15 }, (_, i) => item(`e${i}`, `Old ${i}`, 1.0));
+  it("caps combined items at 75", () => {
+    const existing = Array.from({ length: 70 }, (_, i) => item(`e${i}`, `Old ${i}`, 1.0));
     const incoming = Array.from({ length: 10 }, (_, i) => parsed(`New ${i}`, 2.0));
     const result = mergeItems(existing, incoming);
-    expect(result).toHaveLength(20);
+    expect(result).toHaveLength(75);
     // Existing items take priority (filled first)
     expect(result[0].id).toBe("e0");
-    expect(result[14].id).toBe("e14");
+    expect(result[69].id).toBe("e69");
     // Only 5 new items fit
-    expect(result[15].name).toBe("New 0");
-    expect(result[19].name).toBe("New 4");
+    expect(result[70].name).toBe("New 0");
+    expect(result[74].name).toBe("New 4");
   });
 
   it("returns all existing items when parsed list is empty", () => {
@@ -149,10 +149,10 @@ describe("mergeItems", () => {
     expect(mergeItems([], [])).toHaveLength(0);
   });
 
-  it("does not exceed cap even when existing list is already at 20", () => {
-    const existing = Array.from({ length: 20 }, (_, i) => item(`e${i}`, `Old ${i}`, 1.0));
+  it("does not exceed cap even when existing list is already at 75", () => {
+    const existing = Array.from({ length: 75 }, (_, i) => item(`e${i}`, `Old ${i}`, 1.0));
     const result = mergeItems(existing, [parsed("Overflow", 5.0)]);
-    expect(result).toHaveLength(20);
+    expect(result).toHaveLength(75);
     expect(result.every((r) => r.id.startsWith("e"))).toBe(true);
   });
 
@@ -199,11 +199,11 @@ describe("mergeItems", () => {
     expect(result.find((r) => r.name === "Coperto")!.price).toBe(2.7);
   });
 
-  it("caps combined items at 20 when quantity expansion would exceed cap", () => {
-    // 15 existing + one item with quantity 10 = 25, should cap at 20
-    const existing = Array.from({ length: 15 }, (_, i) => item(`e${i}`, `Old ${i}`, 1.0));
+  it("caps combined items at 75 when quantity expansion would exceed cap", () => {
+    // 70 existing + one item with quantity 10 = 80, should cap at 75
+    const existing = Array.from({ length: 70 }, (_, i) => item(`e${i}`, `Old ${i}`, 1.0));
     const result = mergeItems(existing, [{ name: "Water", price: 30.0, quantity: 10 }]);
-    expect(result).toHaveLength(20);
+    expect(result).toHaveLength(75);
     expect(result.filter((r) => r.name === "Water")).toHaveLength(5);
   });
 });
