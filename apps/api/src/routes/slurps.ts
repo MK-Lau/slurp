@@ -401,7 +401,7 @@ router.post(
         if (!name) throw new BadRequestError("name is required");
         validateString(name, "name", 64);
         const price = validatePrice(req.body.price);
-        if (slurp.items.length >= 20) throw new BadRequestError("Maximum 20 items");
+        if (slurp.items.length >= 75) throw new BadRequestError("Maximum 75 items");
         slurp.items.push({ id: nanoid(), name, price });
         resetConfirmations(slurp);
         slurp.updatedAt = new Date().toISOString();
