@@ -23,3 +23,13 @@ CVE-2026-31802
 
 # picomatch@4.0.3 bundled transitively through Next.js / jest internals
 CVE-2026-33671
+
+# brace-expansion@2.1.2 transitively via @google-cloud/firestore -> google-gax ->
+# rimraf@5.0.10 -> glob@10.5.0 -> minimatch@9.0.9. Only fixed in brace-expansion@5.0.8,
+# which requires minimatch@^10, which requires glob@^11, which requires rimraf@^6 —
+# but google-gax pins rimraf to ^5.0.1, so pulling the fix means an `overrides` entry
+# that npm marks invalid against google-gax's declared range. Verified rimraf is not
+# required/imported anywhere in google-gax's shipped build output (dependency is
+# unused dead weight), so the invalid-override risk isn't worth taking for an
+# unreachable code path. Accepted until google-gax bumps its own rimraf range.
+CVE-2026-14257
