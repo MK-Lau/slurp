@@ -33,3 +33,12 @@ CVE-2026-33671
 # unused dead weight), so the invalid-override risk isn't worth taking for an
 # unreachable code path. Accepted until google-gax bumps its own rimraf range.
 CVE-2026-14257
+
+# sharp@0.34.5, an optionalDependency of next@16.2.12 (^0.34.5) used only by
+# Next's built-in next/image optimization route. Fixed in sharp@0.35.0, which
+# next.js's own declared range excludes (^0.34.5 caps below 0.35.0), so an
+# override would be marked invalid. This app never renders next/image
+# (verified: no `next/image` import in apps/web/src), so the optimization
+# route — and sharp — is never invoked. Accepted until Next.js bumps its own
+# sharp range.
+GHSA-f88m-g3jw-g9cj
