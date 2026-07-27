@@ -107,11 +107,11 @@ export const createSlurpDailyLimiter: RequestHandler = isProd ? rateLimit({
   message: { error: "Too many slurps created, try again later" },
 }) : noopLimiter;
 
-// Per-user limiter for item creation: 200/hour and 600/day.
+// Per-user limiter for item creation: 375/hour and 750/day.
 // Prevents Firestore transaction spam via bulk item creation across slurps.
 export const addItemHourlyLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  limit: 200,
+  limit: 375,
   keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_addItem_hourly"),
   standardHeaders: "draft-7",
@@ -121,7 +121,7 @@ export const addItemHourlyLimiter: RequestHandler = isProd ? rateLimit({
 
 export const addItemDailyLimiter: RequestHandler = isProd ? rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  limit: 600,
+  limit: 750,
   keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
   store: new FirestoreStore("rateLimits_addItem_daily"),
   standardHeaders: "draft-7",
