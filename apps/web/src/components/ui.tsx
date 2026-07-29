@@ -91,6 +91,16 @@ export function Btn({ children, variant = "primary", size = "md", className = ""
   );
 }
 
+// ─── VenmoIcon ───────────────────────────────────────────────────────────────
+
+export function VenmoIcon(): React.JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.9 1.6c.8 1.3 1.1 2.6 1.1 4.3 0 5.4-4.6 12.4-8.4 17.3H2.4L0 2.5l7.3-.7 1.3 10.5c1.2-2 2.7-5.2 2.7-7.3 0-1.2-.2-2-.5-2.7l7.1-1.7z"/>
+    </svg>
+  );
+}
+
 // ─── Card ────────────────────────────────────────────────────────────────────
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {

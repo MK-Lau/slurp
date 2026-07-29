@@ -14,6 +14,7 @@ export interface CreateSlurpRequest {
   title: string;
   taxAmount?: number;
   tipAmount?: number;
+  expectedGuests?: number;
   currencyConversion?: CurrencyConversion;
 }
 export type CreateSlurpResponse = Slurp;
@@ -29,6 +30,7 @@ export interface UpdateSlurpRequest {
   title?: string;
   taxAmount?: number;
   tipAmount?: number;
+  expectedGuests?: number | null; // null clears the value
   currencyConversion?: CurrencyConversion;
 }
 export type UpdateSlurpResponse = Slurp;

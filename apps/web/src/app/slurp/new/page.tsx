@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { createSlurp, addItem, getReceiptUploadUrl, triggerReceiptProcessing, getSlurp } from "@/lib/slurps";
 import { getProfile } from "@/lib/users";
-import { CURRENCIES, CURRENCY_MAP } from "@slurp/types";
+import { CURRENCIES, CURRENCY_MAP, MAX_PARTICIPANTS } from "@slurp/types";
 import { Btn, Card, Field, NumberInput, PageFade, Skeleton, TabBar, TextInput, UISelect, UIToggle } from "@/components/ui";
 
 interface DraftItem {
@@ -18,6 +18,7 @@ type ItemsMode = "manual" | "receipt";
 type ParsePhase = "uploading" | "parsing";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_GUESTS = MAX_PARTICIPANTS - 1;
 
 export default function NewSlurpPage(): React.JSX.Element {
   const { user, loading, triggerVenmoPrompt } = useAuth();
@@ -26,6 +27,7 @@ export default function NewSlurpPage(): React.JSX.Element {
   const [title, setTitle] = useState("");
   const [taxValue, setTaxValue] = useState("0");
   const [tipValue, setTipValue] = useState("0");
+  const [expectedGuests, setExpectedGuests] = useState("");
   const [itemsMode, setItemsMode] = useState<ItemsMode>("receipt");
   const [items, setItems] = useState<DraftItem[]>([{ key: 0, name: "", price: "" }]);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -118,6 +120,17 @@ export default function NewSlurpPage(): React.JSX.Element {
       }
     }
 
+    const trimmedGuests = expectedGuests.trim();
+    let guestCount: number | undefined;
+    if (trimmedGuests !== "") {
+      const n = Number(trimmedGuests);
+      if (!Number.isInteger(n) || n < 0 || n > MAX_GUESTS) {
+        setError(`Expected guests must be a whole number between 0 and ${MAX_GUESTS}`);
+        return;
+      }
+      guestCount = n;
+    }
+
     setSubmitting(true);
 
     try {
@@ -125,6 +138,7 @@ export default function NewSlurpPage(): React.JSX.Element {
         title,
         taxAmount: parseFloat(taxValue) || 0,
         tipAmount: parseFloat(tipValue) || 0,
+        ...(guestCount != null ? { expectedGuests: guestCount } : {}),
         currencyConversion: {
           enabled: conversionEnabled,
           billedCurrency: conversionEnabled ? billedCurrency : homeCurrency,
@@ -311,6 +325,17 @@ export default function NewSlurpPage(): React.JSX.Element {
                 </Field>
               </div>
             )}
+
+            <Field label="Expected guests" hint="Not counting you. Leave blank if you're not sure.">
+              <NumberInput
+                step="1"
+                min="0"
+                max={MAX_GUESTS}
+                placeholder="e.g. 3"
+                value={expectedGuests}
+                onChange={(e) => setExpectedGuests(e.target.value)}
+              />
+            </Field>
 
             {/* Currency conversion */}
             <Card className="p-4">

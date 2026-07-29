@@ -3,7 +3,7 @@
  * The button should appear whenever homeCurrency is USD, regardless of
  * whether currency conversion is enabled or disabled.
  */
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import SummaryView from "./SummaryView";
 import type { Slurp } from "@slurp/types";
 
@@ -131,5 +131,85 @@ describe("SummaryView — Pay in Venmo button visibility", () => {
     render(<SummaryView slurp={slurp} isHost={true} viewerUid={HOST_UID} onUpdate={jest.fn()} />);
     await flushMicrotasks();
     expect(screen.queryByText("Pay in Venmo")).toBeNull();
+  });
+});
+
+describe("SummaryView — incomplete party warning", () => {
+  const VENMO_URL = "https://venmo.com/pay?txn=pay&recipients=venmo-user&amount=10.00&note=Slurp";
+
+  beforeEach(() => {
+    mockGetSummary.mockResolvedValue(baseSummary);
+  });
+
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  /** 2 joined, 3 guests expected (+ host = 4), so 2 people are still missing. */
+  function incompleteSlurp(): Slurp {
+    return { ...makeSlurp(), expectedGuests: 3 };
+  }
+
+  async function renderSummary(slurp: Slurp): Promise<void> {
+    render(<SummaryView slurp={slurp} isHost={false} viewerUid={VIEWER_UID} onUpdate={jest.fn()} />);
+    await flushMicrotasks();
+  }
+
+  it("links straight to Venmo when everyone expected has joined", async () => {
+    await renderSummary({ ...makeSlurp(), expectedGuests: 1 });
+    expect(screen.getByText("Pay in Venmo").closest("a")?.getAttribute("href")).toBe(VENMO_URL);
+    expect(screen.queryByText("Not everyone has joined yet")).toBeNull();
+  });
+
+  it("links straight to Venmo when no guest count was specified", async () => {
+    await renderSummary(makeSlurp());
+    expect(screen.getByText("Pay in Venmo").closest("a")?.getAttribute("href")).toBe(VENMO_URL);
+  });
+
+  it("warns instead of navigating when people are still missing", async () => {
+    await renderSummary(incompleteSlurp());
+    const payButton = screen.getByText("Pay in Venmo");
+    expect(payButton.closest("a")).toBeNull();
+
+    fireEvent.click(payButton);
+    expect(screen.getByText("Not everyone has joined yet")).toBeDefined();
+    expect(screen.getByText(/2 of 4 people have joined/)).toBeDefined();
+  });
+
+  it("exposes the Venmo link behind Continue anyway", async () => {
+    await renderSummary(incompleteSlurp());
+    fireEvent.click(screen.getByText("Pay in Venmo"));
+    expect(screen.getByText("Continue anyway").closest("a")?.getAttribute("href")).toBe(VENMO_URL);
+  });
+
+  it("dismisses the warning without navigating when Wait is clicked", async () => {
+    await renderSummary(incompleteSlurp());
+    fireEvent.click(screen.getByText("Pay in Venmo"));
+    fireEvent.click(screen.getByText("Wait"));
+    expect(screen.queryByText("Not everyone has joined yet")).toBeNull();
+    expect(screen.queryByText("Continue anyway")).toBeNull();
+  });
+
+  it("warns before marking as paid and does not call the API yet", async () => {
+    await renderSummary(incompleteSlurp());
+    fireEvent.click(screen.getByText("Mark as paid"));
+    expect(screen.getByText("Not everyone has joined yet")).toBeDefined();
+    expect(mockMarkAsPaid).not.toHaveBeenCalled();
+  });
+
+  it("marks as paid only after Continue anyway", async () => {
+    mockMarkAsPaid.mockResolvedValue(incompleteSlurp());
+    await renderSummary(incompleteSlurp());
+    fireEvent.click(screen.getByText("Mark as paid"));
+    await act(async () => { fireEvent.click(screen.getByText("Continue anyway")); });
+    expect(mockMarkAsPaid).toHaveBeenCalledWith("slurp-1");
+  });
+
+  it("marks as paid immediately when the party is complete", async () => {
+    mockMarkAsPaid.mockResolvedValue(makeSlurp());
+    await renderSummary({ ...makeSlurp(), expectedGuests: 1 });
+    await act(async () => { fireEvent.click(screen.getByText("Mark as paid")); });
+    expect(mockMarkAsPaid).toHaveBeenCalledWith("slurp-1");
+    expect(screen.queryByText("Not everyone has joined yet")).toBeNull();
   });
 });

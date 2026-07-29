@@ -658,3 +658,68 @@ describe("validateCurrencyConversion", () => {
     expect(result!.homeCurrency).toBe("USD");
   });
 });
+
+// ── validateExpectedGuests ────────────────────────────────────────────────────
+
+const MAX_PARTICIPANTS = 10;
+
+/** Mirrors the validateExpectedGuests helper in slurps.ts */
+function validateExpectedGuests(value: unknown): number {
+  const numeric =
+    typeof value === "number" || (typeof value === "string" && value.trim() !== "");
+  const n = numeric ? Number(value) : NaN;
+  if (!Number.isInteger(n) || n < 0 || n > MAX_PARTICIPANTS - 1) {
+    throw new Error(
+      `expectedGuests must be a whole number between 0 and ${MAX_PARTICIPANTS - 1}`
+    );
+  }
+  return n;
+}
+
+describe("validateExpectedGuests", () => {
+  it("accepts zero (a host-only party)", () => {
+    expect(validateExpectedGuests(0)).toBe(0);
+  });
+
+  it("accepts the maximum, one below the participant cap", () => {
+    expect(validateExpectedGuests(MAX_PARTICIPANTS - 1)).toBe(9);
+  });
+
+  it("accepts a numeric string", () => {
+    expect(validateExpectedGuests("3")).toBe(3);
+  });
+
+  it("rejects a value above the cap", () => {
+    expect(() => validateExpectedGuests(MAX_PARTICIPANTS)).toThrow("between 0 and 9");
+  });
+
+  it("rejects negative numbers", () => {
+    expect(() => validateExpectedGuests(-1)).toThrow("between 0 and 9");
+  });
+
+  it("rejects fractional numbers", () => {
+    expect(() => validateExpectedGuests(2.5)).toThrow("between 0 and 9");
+  });
+
+  it("rejects non-numeric strings", () => {
+    expect(() => validateExpectedGuests("abc")).toThrow("between 0 and 9");
+  });
+
+  it("rejects null rather than coercing it to zero", () => {
+    expect(() => validateExpectedGuests(null)).toThrow("between 0 and 9");
+  });
+
+  it("rejects an empty or blank string rather than coercing it to zero", () => {
+    expect(() => validateExpectedGuests("")).toThrow("between 0 and 9");
+    expect(() => validateExpectedGuests("   ")).toThrow("between 0 and 9");
+  });
+
+  it("rejects booleans rather than coercing them", () => {
+    expect(() => validateExpectedGuests(true)).toThrow("between 0 and 9");
+  });
+
+  it("rejects Infinity and NaN", () => {
+    expect(() => validateExpectedGuests(Infinity)).toThrow("between 0 and 9");
+    expect(() => validateExpectedGuests(NaN)).toThrow("between 0 and 9");
+  });
+});
