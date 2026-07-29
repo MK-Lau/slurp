@@ -3,7 +3,7 @@
  * The button should appear whenever homeCurrency is USD, regardless of
  * whether currency conversion is enabled or disabled.
  */
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import SelectionPanel from "./SelectionPanel";
 import type { Slurp, Participant } from "@slurp/types";
 
@@ -108,5 +108,61 @@ describe("SelectionPanel — Pay in Venmo button visibility", () => {
     render(<SelectionPanel slurp={slurp} participant={confirmedParticipant} onUpdate={jest.fn()} />);
     await flushMicrotasks();
     expect(screen.queryByText("Pay in Venmo")).toBeNull();
+  });
+});
+
+describe("SelectionPanel — incomplete party warning", () => {
+  const VENMO_URL = "https://venmo.com/pay?txn=pay&recipients=venmo-user&amount=10.00&note=Slurp";
+
+  beforeEach(() => {
+    mockGetSummary.mockResolvedValue({
+      slurpId: "slurp-1",
+      hostVenmoUsername: "venmo-user",
+      participants: [],
+    });
+  });
+
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  async function renderPanel(slurp: Slurp): Promise<void> {
+    render(<SelectionPanel slurp={slurp} participant={confirmedParticipant} onUpdate={jest.fn()} />);
+    await flushMicrotasks();
+  }
+
+  it("links straight to Venmo when everyone expected has joined", async () => {
+    await renderPanel({ ...makeSlurp(), expectedGuests: 1 });
+    expect(screen.getByText("Pay in Venmo").closest("a")?.getAttribute("href")).toBe(VENMO_URL);
+    expect(screen.queryByText("Not everyone has joined yet")).toBeNull();
+  });
+
+  it("links straight to Venmo when no guest count was specified", async () => {
+    await renderPanel(makeSlurp());
+    expect(screen.getByText("Pay in Venmo").closest("a")?.getAttribute("href")).toBe(VENMO_URL);
+  });
+
+  it("warns instead of navigating when people are still missing", async () => {
+    // 2 joined, 3 guests expected (+ host = 4), so 2 are still missing.
+    await renderPanel({ ...makeSlurp(), expectedGuests: 3 });
+    const payButton = screen.getByText("Pay in Venmo");
+    expect(payButton.closest("a")).toBeNull();
+
+    fireEvent.click(payButton);
+    expect(screen.getByText(/2 of 4 people have joined/)).toBeDefined();
+    expect(screen.getByText("Continue anyway").closest("a")?.getAttribute("href")).toBe(VENMO_URL);
+  });
+
+  it("dismisses the warning without navigating when Wait is clicked", async () => {
+    await renderPanel({ ...makeSlurp(), expectedGuests: 3 });
+    fireEvent.click(screen.getByText("Pay in Venmo"));
+    fireEvent.click(screen.getByText("Wait"));
+    expect(screen.queryByText("Not everyone has joined yet")).toBeNull();
+  });
+
+  it("uses the singular form when exactly one person is missing", async () => {
+    await renderPanel({ ...makeSlurp(), expectedGuests: 2 });
+    fireEvent.click(screen.getByText("Pay in Venmo"));
+    expect(screen.getByText(/The 1 person still missing/)).toBeDefined();
   });
 });

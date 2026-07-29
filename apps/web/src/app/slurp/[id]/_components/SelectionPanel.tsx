@@ -6,7 +6,9 @@ import { useVenmoUrl } from "@/hooks/useVenmoUrl";
 import type { Slurp, Participant } from "@slurp/types";
 import { computeParticipantBreakdown } from "@slurp/types";
 import { formatAmount, getVenmoAmount, isVenmoEligible } from "@/lib/currency";
-import { Btn, Card, Divider, EmptyState } from "@/components/ui";
+import { partyStatus } from "@/lib/party";
+import { Btn, Card, Divider, EmptyState, VenmoIcon } from "@/components/ui";
+import PartyIncompleteModal from "./PartyIncompleteModal";
 
 interface Props {
   slurp: Slurp;
@@ -20,6 +22,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hostVenmoUsername, setHostVenmoUsername] = useState<string | undefined>();
+  const [showPartyWarning, setShowPartyWarning] = useState(false);
 
   useEffect(() => {
     if (participant.status !== "confirmed" || participant.role === "host") return;
@@ -74,6 +77,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
     ? getVenmoAmount(total, slurp.currencyConversion)
     : total;
   const venmoUrl = useVenmoUrl(hostVenmoUsername ?? "", venmoAmount, "Slurp: " + slurp.title);
+  const party = partyStatus(slurp);
 
   if (slurp.items.length === 0) {
     return <EmptyState icon="🛒" title="No items yet" subtitle="The host hasn't added any items." />;
@@ -184,14 +188,19 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
             Confirmed
           </span>
           {hostVenmoUsername && total > 0 && isVenmoEligible(slurp.currencyConversion) && (
-            <a href={venmoUrl} target="_blank" rel="noopener noreferrer">
-              <Btn variant="outline" size="md">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.9 1.6c.8 1.3 1.1 2.6 1.1 4.3 0 5.4-4.6 12.4-8.4 17.3H2.4L0 2.5l7.3-.7 1.3 10.5c1.2-2 2.7-5.2 2.7-7.3 0-1.2-.2-2-.5-2.7l7.1-1.7z"/>
-                </svg>
+            party.incomplete ? (
+              <Btn variant="outline" size="md" onClick={() => setShowPartyWarning(true)}>
+                <VenmoIcon />
                 Pay in Venmo
               </Btn>
-            </a>
+            ) : (
+              <a href={venmoUrl} target="_blank" rel="noopener noreferrer">
+                <Btn variant="outline" size="md">
+                  <VenmoIcon />
+                  Pay in Venmo
+                </Btn>
+              </a>
+            )
           )}
         </div>
       ) : (
@@ -204,6 +213,17 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
         >
           {confirming ? "Saving…" : editing ? "Done — re-confirm selections" : "Done — confirm selections"}
         </Btn>
+      )}
+
+      {showPartyWarning && party.expectedTotal != null && (
+        <PartyIncompleteModal
+          joined={party.joined}
+          expectedTotal={party.expectedTotal}
+          missing={party.missing}
+          continueHref={venmoUrl}
+          onContinue={() => setShowPartyWarning(false)}
+          onCancel={() => setShowPartyWarning(false)}
+        />
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSlurp, getSlurpPreview } from "@/lib/slurps";
 import { getProfile } from "@/lib/users";
+import { partyStatus } from "@/lib/party";
 import { Badge, PageFade, TabBar } from "@/components/ui";
 import type { Slurp, SlurpPreviewResponse, GetSlurpResponse } from "@slurp/types";
 import HostView from "./_components/HostView";
@@ -175,10 +176,9 @@ function SlurpPageContent(): React.JSX.Element {
 
   const d = slurp!;
 
-  const confirmed = d.participants.filter((p) => p.status === "confirmed").length;
-  const total = d.participants.length;
-  const allConfirmed = confirmed === total;
-  const someConfirmed = confirmed > 0 && !allConfirmed;
+  const party = partyStatus(d);
+  const { joined, confirmed, expectedTotal } = party;
+  const allConfirmed = confirmed === joined;
 
   const hostTabs = [
     { key: "manage", label: "Manage" },
@@ -211,12 +211,15 @@ function SlurpPageContent(): React.JSX.Element {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{d.title}</h1>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             {isHost && <Badge color="purple">Host</Badge>}
+            <Badge color={expectedTotal == null ? "gray" : party.incomplete ? "amber" : "green"}>
+              👥 {expectedTotal != null ? `${joined} of ${expectedTotal} joined` : `${joined} joined`}
+            </Badge>
             {allConfirmed ? (
               <Badge color="green">All confirmed</Badge>
-            ) : someConfirmed ? (
-              <Badge color="amber">{confirmed}/{total} confirmed</Badge>
             ) : (
-              <Badge color="gray">Pending</Badge>
+              <Badge color={confirmed > 0 ? "amber" : "gray"}>
+                {confirmed}/{joined} confirmed
+              </Badge>
             )}
             <span className="text-xs text-gray-400">{relativeDate(d.createdAt)}</span>
           </div>

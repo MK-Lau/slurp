@@ -196,3 +196,69 @@ describe("SlurpPage polling", () => {
     expect(mockGetSlurp).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("SlurpPage header counts", () => {
+  beforeEach(() => {
+    mockGetSlurp.mockReset();
+  });
+
+  async function renderPage(overrides: Partial<Slurp>): Promise<void> {
+    mockGetSlurp.mockResolvedValue(makeSlurp({ receiptStatus: "done", ...overrides }));
+    render(<SlurpPage />);
+    await flushMicrotasks();
+  }
+
+  const guest = (uid: string, status: "pending" | "confirmed") => ({
+    uid,
+    email: `${uid}@example.com`,
+    role: "guest" as const,
+    status,
+    selectedItemIds: [],
+  });
+
+  const host = (status: "pending" | "confirmed") => ({
+    uid: "host-uid-1",
+    email: "host@example.com",
+    role: "host" as const,
+    status,
+    selectedItemIds: [],
+  });
+
+  it("shows the expected total alongside the joined count", async () => {
+    await renderPage({
+      expectedGuests: 4,
+      participants: [host("confirmed"), guest("g1", "pending"), guest("g2", "pending")],
+    });
+    expect(screen.getByText(/3 of 5 joined/)).toBeDefined();
+  });
+
+  it("shows only the joined count when no guest count was specified", async () => {
+    await renderPage({ participants: [host("pending"), guest("g1", "pending")] });
+    expect(screen.getByText(/2 joined/)).toBeDefined();
+    expect(screen.queryByText(/of .* joined/)).toBeNull();
+  });
+
+  it("shows the confirmed count even when nobody has confirmed yet", async () => {
+    await renderPage({
+      expectedGuests: 2,
+      participants: [host("pending"), guest("g1", "pending")],
+    });
+    expect(screen.getByText("0/2 confirmed")).toBeDefined();
+  });
+
+  it("shows a partial confirmed count", async () => {
+    await renderPage({
+      expectedGuests: 2,
+      participants: [host("confirmed"), guest("g1", "pending"), guest("g2", "pending")],
+    });
+    expect(screen.getByText("1/3 confirmed")).toBeDefined();
+  });
+
+  it("shows All confirmed once everyone joined has confirmed", async () => {
+    await renderPage({
+      expectedGuests: 1,
+      participants: [host("confirmed"), guest("g1", "confirmed")],
+    });
+    expect(screen.getByText("All confirmed")).toBeDefined();
+  });
+});

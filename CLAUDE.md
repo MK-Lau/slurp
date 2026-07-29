@@ -52,7 +52,7 @@ npm run lint --workspace=@slurp/api
 - `apps/api/src/routes/slurps.ts`: `GET/POST /slurps`, `GET/PATCH /slurps/:id`, `POST /slurps/:id/items`, `POST /slurps/:id/invite`, `POST /slurps/:id/join`, `PUT /slurps/:id/selections`, `POST /slurps/:id/confirm`, `GET /slurps/:id/summary`
 - `apps/api/src/routes/receipt.ts`: `POST /slurps/:id/receipt/upload-url`, `POST /slurps/:id/receipt/process`
 
-**Firestore data model**: `slurps/{slurpId}` documents contain title, taxPercent/taxAmount, tipPercent/tipAmount, participants array (with uid/email/selections), items array (with id/name/price), receiptStatus (`pending`|`processing`|`done`|`failed`), receiptPath, receiptError, and confirmed flag.
+**Firestore data model**: `slurps/{slurpId}` documents contain title, taxPercent/taxAmount, tipPercent/tipAmount, optional expectedGuests (guests besides the host; absent when unspecified), participants array (with uid/email/selections), items array (with id/name/price), receiptStatus (`pending`|`processing`|`done`|`failed`), receiptPath, receiptError, and confirmed flag.
 
 **Infra modules**: `infra/modules/iam`, `storage`, `cloud-run`, `firestore`, `artifact-registry`, `billing`, `pubsub`. Three Cloud Run services per env: `slurp-api`, `slurp-web`, `slurp-receipt-processor` (not public).
 

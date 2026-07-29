@@ -21,7 +21,7 @@ import { requireHost, requireParticipant } from "../lib/guards";
 import { notifyAll } from "../lib/notify";
 import { logger } from "../logger";
 import type { Slurp, Item, Participant, CurrencyConversion } from "@slurp/types";
-import { computeAllBreakdowns, CURRENCY_MAP, DEFAULT_SLURP_TITLE } from "@slurp/types";
+import { computeAllBreakdowns, CURRENCY_MAP, DEFAULT_SLURP_TITLE, MAX_PARTICIPANTS } from "@slurp/types";
 
 const router = Router();
 
@@ -108,6 +108,20 @@ function validateTaxTip(body: Record<string, unknown>): Partial<Pick<Slurp, "tax
   if (body.taxAmount != null) result.taxAmount = validateNonNegative(body.taxAmount, "taxAmount");
   if (body.tipAmount != null) result.tipAmount = validateNonNegative(body.tipAmount, "tipAmount");
   return result;
+}
+
+/** Guests besides the host, so the ceiling is one below the participant cap. */
+function validateExpectedGuests(value: unknown): number {
+  // Number() would coerce null/""/true to 0, so only numbers and non-blank strings qualify.
+  const numeric =
+    typeof value === "number" || (typeof value === "string" && value.trim() !== "");
+  const n = numeric ? Number(value) : NaN;
+  if (!Number.isInteger(n) || n < 0 || n > MAX_PARTICIPANTS - 1) {
+    throw new BadRequestError(
+      `expectedGuests must be a whole number between 0 and ${MAX_PARTICIPANTS - 1}`
+    );
+  }
+  return n;
 }
 
 function validatePrice(value: unknown): number {
@@ -225,6 +239,9 @@ router.post(
       const taxTip = validateTaxTip(req.body);
       const taxAmount = taxTip.taxAmount ?? 0;
       const tipAmount = taxTip.tipAmount ?? 0;
+      const expectedGuests = req.body.expectedGuests != null
+        ? validateExpectedGuests(req.body.expectedGuests)
+        : undefined;
       const currencyConversion = validateCurrencyConversion(req.body) ?? { enabled: false, billedCurrency: "USD", homeCurrency: "USD", exchangeRate: 1 };
       const now = new Date().toISOString();
       const hostProfileSnap = await db.collection("users").doc(req.user.uid).get();
@@ -244,6 +261,7 @@ router.post(
         hostEmail: req.user.email,
         taxAmount,
         tipAmount,
+        expectedGuests,
         items: [],
         participants: [hostParticipant],
         participantEmails: [req.user.email],
@@ -341,6 +359,13 @@ router.patch(
         requireHost(slurp, req.user.uid);
         const { title } = req.body;
         if (title != null) slurp.title = validateString(title, "title", 64);
+        // null explicitly clears; tx.set() overwrites the whole doc, and Firestore is
+        // configured with ignoreUndefinedProperties, so undefined drops the field.
+        if (req.body.expectedGuests === null) {
+          slurp.expectedGuests = undefined;
+        } else if (req.body.expectedGuests !== undefined) {
+          slurp.expectedGuests = validateExpectedGuests(req.body.expectedGuests);
+        }
         let costChanged = false;
         if (req.body.taxAmount != null || req.body.tipAmount != null) {
           const taxTip = validateTaxTip(req.body);
@@ -503,7 +528,7 @@ router.post(
         const existing = slurp.participants.find((p: Participant) => p.uid === req.user.uid);
         if (existing) return slurp;
 
-        if (slurp.participants.length >= 10) throw new BadRequestError("This slurp is full");
+        if (slurp.participants.length >= MAX_PARTICIPANTS) throw new BadRequestError("This slurp is full");
 
         // Check host's blocked list and fetch joining user's profile for displayName fallback
         const hostSnap = await tx.get(db.collection("users").doc(slurp.hostUid));

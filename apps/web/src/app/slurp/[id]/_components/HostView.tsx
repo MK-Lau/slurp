@@ -8,6 +8,7 @@ import ItemList from "./ItemList";
 import ItemForm from "./ItemForm";
 import InviteLink from "./InviteLink";
 import ParticipantList from "./ParticipantList";
+import GuestCountForm from "./GuestCountForm";
 import TaxTipForm from "./TaxTipForm";
 import CurrencyConversionForm from "./CurrencyConversionForm";
 import SelectionPanel from "./SelectionPanel";
@@ -143,6 +144,7 @@ export default function HostView({ slurp, viewerUid, onUpdate, tab }: Props): Re
         {/* Guests */}
         <div>
           <SectionHeader title="Guests" />
+          <GuestCountForm slurp={slurp} onUpdate={onUpdate} />
           <ParticipantList slurp={slurp} isHost onUpdate={onUpdate} />
         </div>
 

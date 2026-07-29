@@ -104,3 +104,46 @@ describe("toPercent", () => {
     expect(toPercent("", "$", 100)).toBe(0);
   });
 });
+
+// ── Expected guests parsing (mirrors handleSubmit in page.tsx) ─────────────────
+
+const MAX_GUESTS = 9;
+
+type GuestParse = { ok: true; value: number | undefined } | { ok: false };
+
+function parseExpectedGuests(raw: string): GuestParse {
+  const trimmed = raw.trim();
+  if (trimmed === "") return { ok: true, value: undefined };
+  const n = Number(trimmed);
+  if (!Number.isInteger(n) || n < 0 || n > MAX_GUESTS) return { ok: false };
+  return { ok: true, value: n };
+}
+
+describe("parseExpectedGuests", () => {
+  it("treats a blank field as unspecified", () => {
+    expect(parseExpectedGuests("")).toEqual({ ok: true, value: undefined });
+    expect(parseExpectedGuests("   ")).toEqual({ ok: true, value: undefined });
+  });
+
+  it("parses a whole number", () => {
+    expect(parseExpectedGuests("3")).toEqual({ ok: true, value: 3 });
+  });
+
+  it("accepts the boundaries", () => {
+    expect(parseExpectedGuests("0")).toEqual({ ok: true, value: 0 });
+    expect(parseExpectedGuests("9")).toEqual({ ok: true, value: 9 });
+  });
+
+  it("rejects values past the participant cap", () => {
+    expect(parseExpectedGuests("10")).toEqual({ ok: false });
+  });
+
+  it("rejects negatives and fractions", () => {
+    expect(parseExpectedGuests("-1")).toEqual({ ok: false });
+    expect(parseExpectedGuests("2.5")).toEqual({ ok: false });
+  });
+
+  it("rejects non-numeric input", () => {
+    expect(parseExpectedGuests("abc")).toEqual({ ok: false });
+  });
+});

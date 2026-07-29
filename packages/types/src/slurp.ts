@@ -1,5 +1,8 @@
 export const DEFAULT_SLURP_TITLE = "Unnamed Slurp";
 
+/** Hard cap on participants in one slurp, host included. */
+export const MAX_PARTICIPANTS = 10;
+
 export type ParticipantRole = "host" | "guest";
 export type ParticipantStatus = "pending" | "confirmed";
 
@@ -33,6 +36,7 @@ export interface Slurp {
   hostEmail?: string;
   taxAmount: number;
   tipAmount: number;
+  expectedGuests?: number; // guests besides the host; absent = not specified
   items: Item[];
   participants: Participant[];
   participantEmails: string[]; // denormalized for Firestore array-contains queries

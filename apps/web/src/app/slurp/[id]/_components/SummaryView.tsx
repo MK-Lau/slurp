@@ -6,16 +6,40 @@ import { useVenmoUrl } from "@/hooks/useVenmoUrl";
 import type { Slurp, SummaryResponse } from "@slurp/types";
 import { CURRENCY_MAP } from "@slurp/types";
 import { formatAmount, getVenmoAmount, isVenmoEligible } from "@/lib/currency";
-import { Avatar, Badge, Btn, Card, Divider } from "@/components/ui";
+import { partyStatus } from "@/lib/party";
+import { Avatar, Badge, Btn, Card, Divider, VenmoIcon } from "@/components/ui";
+import PartyIncompleteModal from "./PartyIncompleteModal";
 
-function VenmoLink({ username, amount, note }: { username: string; amount: number; note: string }) {
+/**
+ * When `onWarn` is provided the party is incomplete, so the button opens the warning
+ * instead of navigating; the modal then owns the actual link.
+ */
+function VenmoLink({
+  username,
+  amount,
+  note,
+  onWarn,
+}: {
+  username: string;
+  amount: number;
+  note: string;
+  onWarn?: (url: string) => void;
+}) {
   const url = useVenmoUrl(username, amount, note);
+
+  if (onWarn) {
+    return (
+      <Btn variant="outline" size="sm" onClick={() => onWarn(url)}>
+        <VenmoIcon />
+        Pay in Venmo
+      </Btn>
+    );
+  }
+
   return (
     <a href={url} target="_blank" rel="noopener noreferrer">
       <Btn variant="outline" size="sm">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.9 1.6c.8 1.3 1.1 2.6 1.1 4.3 0 5.4-4.6 12.4-8.4 17.3H2.4L0 2.5l7.3-.7 1.3 10.5c1.2-2 2.7-5.2 2.7-7.3 0-1.2-.2-2-.5-2.7l7.1-1.7z"/>
-        </svg>
+        <VenmoIcon />
         Pay in Venmo
       </Btn>
     </a>
@@ -33,6 +57,8 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  // Holds the pending money action while the "not everyone joined" warning is up.
+  const [warning, setWarning] = useState<{ kind: "paid" } | { kind: "venmo"; url: string } | null>(null);
 
   const participantsPaidKey = slurp.participants.map((p) => `${p.uid}:${p.paid ?? false}`).join(",");
 
@@ -65,6 +91,7 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
 
   const claimedItemIds = new Set(slurp.participants.flatMap((p) => p.selectedItemIds));
   const unclaimedItems = slurp.items.filter((item) => !claimedItemIds.has(item.id));
+  const party = partyStatus(slurp);
 
   return (
     <div className="space-y-4 pb-12">
@@ -157,7 +184,12 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
                         ✓ Paid
                       </span>
                     ) : (
-                      <Btn variant="success" size="sm" onClick={() => void handleMarkAsPaid()} disabled={paying}>
+                      <Btn
+                        variant="success"
+                        size="sm"
+                        onClick={() => (party.incomplete ? setWarning({ kind: "paid" }) : void handleMarkAsPaid())}
+                        disabled={paying}
+                      >
                         {paying ? "Marking…" : "Mark as paid"}
                       </Btn>
                     )}
@@ -166,6 +198,9 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
                         username={hostVenmoUsername}
                         amount={slurp.currencyConversion.enabled ? getVenmoAmount(p.total, slurp.currencyConversion) : p.total}
                         note={"Slurp: " + slurp.title}
+                        {...(party.incomplete
+                          ? { onWarn: (url: string) => setWarning({ kind: "venmo", url }) }
+                          : {})}
                       />
                     )}
                   </div>
@@ -175,6 +210,20 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
           </Card>
         );
       })}
+
+      {warning && party.expectedTotal != null && (
+        <PartyIncompleteModal
+          joined={party.joined}
+          expectedTotal={party.expectedTotal}
+          missing={party.missing}
+          {...(warning.kind === "venmo" ? { continueHref: warning.url } : {})}
+          onContinue={() => {
+            setWarning(null);
+            if (warning.kind === "paid") void handleMarkAsPaid();
+          }}
+          onCancel={() => setWarning(null)}
+        />
+      )}
     </div>
   );
 }
