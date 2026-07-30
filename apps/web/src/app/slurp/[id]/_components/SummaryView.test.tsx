@@ -173,7 +173,7 @@ describe("SummaryView — incomplete party warning", () => {
 
     fireEvent.click(payButton);
     expect(screen.getByText("Not everyone has joined yet")).toBeDefined();
-    expect(screen.getByText(/2 of 4 people have joined/)).toBeDefined();
+    expect(screen.getByText("Only 2 of 4 have joined. Your share may change once the rest claim their items.")).toBeDefined();
   });
 
   it("exposes the Venmo link behind Continue anyway", async () => {
