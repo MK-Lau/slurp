@@ -219,7 +219,6 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
         <PartyIncompleteModal
           joined={party.joined}
           expectedTotal={party.expectedTotal}
-          missing={party.missing}
           continueHref={venmoUrl}
           onContinue={() => setShowPartyWarning(false)}
           onCancel={() => setShowPartyWarning(false)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
 
@@ -168,6 +169,30 @@ export function PageFade({ children }: { children: React.ReactNode }) {
     >
       {children}
     </div>
+  );
+}
+
+// ─── ModalOverlay ────────────────────────────────────────────────────────────
+
+/**
+ * Full-viewport centered overlay, portalled to document.body.
+ *
+ * The portal is load-bearing, not cosmetic: PageFade sets `transform` on its
+ * wrapper, and a transform other than `none` makes that element the containing
+ * block for `position: fixed` children. Rendered inline, `fixed inset-0` would
+ * size to the whole page instead of the viewport, centering the modal far below
+ * the fold on a long slurp.
+ */
+export function ModalOverlay({ children }: { children: React.ReactNode }): React.JSX.Element | null {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
+      {children}
+    </div>,
+    document.body
   );
 }
 

@@ -215,7 +215,6 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
         <PartyIncompleteModal
           joined={party.joined}
           expectedTotal={party.expectedTotal}
-          missing={party.missing}
           {...(warning.kind === "venmo" ? { continueHref: warning.url } : {})}
           onContinue={() => {
             setWarning(null);

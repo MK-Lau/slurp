@@ -149,7 +149,7 @@ describe("SelectionPanel — incomplete party warning", () => {
     expect(payButton.closest("a")).toBeNull();
 
     fireEvent.click(payButton);
-    expect(screen.getByText(/2 of 4 people have joined/)).toBeDefined();
+    expect(screen.getByText("Not everyone has joined yet")).toBeDefined();
     expect(screen.getByText("Continue anyway").closest("a")?.getAttribute("href")).toBe(VENMO_URL);
   });
 
@@ -160,9 +160,24 @@ describe("SelectionPanel — incomplete party warning", () => {
     expect(screen.queryByText("Not everyone has joined yet")).toBeNull();
   });
 
-  it("uses the singular form when exactly one person is missing", async () => {
+  // PageFade sets a transform on its wrapper, which would make it the containing block
+  // for `position: fixed` and center the modal far below the fold on a long slurp.
+  // The portal is what keeps it in the viewport, so pin it.
+  it("portals the warning to document.body", async () => {
+    await renderPanel({ ...makeSlurp(), expectedGuests: 3 });
+    fireEvent.click(screen.getByText("Pay in Venmo"));
+    const overlay = screen.getByText("Not everyone has joined yet").closest("div.fixed");
+    expect(overlay).not.toBeNull();
+    expect(overlay?.parentElement).toBe(document.body);
+  });
+
+  // Guards the JSX whitespace trap: interleaving {expr} with wrapped text dropped the
+  // spaces around the counts ("1 personstill missing"). Assert the exact string.
+  it("renders the warning body with correct spacing", async () => {
     await renderPanel({ ...makeSlurp(), expectedGuests: 2 });
     fireEvent.click(screen.getByText("Pay in Venmo"));
-    expect(screen.getByText(/The 1 person still missing/)).toBeDefined();
+    expect(
+      screen.getByText("Only 2 of 3 have joined. Your share may change once the rest claim their items.")
+    ).toBeDefined();
   });
 });
