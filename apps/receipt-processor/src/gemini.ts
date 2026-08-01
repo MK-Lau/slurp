@@ -2,8 +2,8 @@ import { SchemaType, VertexAI } from "@google-cloud/vertexai";
 import pino from "pino";
 
 const logger = pino();
-const MODEL = "gemini-3.1-flash-lite";
-// gemini-3.1-flash-lite is only served from the "global" location, not us-central1.
+const MODEL = "gemini-3.5-flash-lite";
+// gemini-3.5-flash-lite is only served from the "global" location, not us-central1.
 const LOCATION = "global";
 
 const RECEIPT_SCHEMA = {
