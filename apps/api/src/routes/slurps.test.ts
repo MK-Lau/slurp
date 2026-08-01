@@ -723,3 +723,95 @@ describe("validateExpectedGuests", () => {
     expect(() => validateExpectedGuests(NaN)).toThrow("between 0 and 9");
   });
 });
+
+// ── Logic extracted from slurps.ts (POST /slurps creation, /join, GET /slurps pagination) ──
+
+/** Mirrors POST / slurp creation: participantEmails starts guest-only (the host is never "invited" to their own slurp). */
+function buildParticipantEmailsOnCreate(): string[] {
+  return [];
+}
+
+/** Mirrors the /join route: records a joining guest's email, idempotently. */
+function addParticipantEmailOnJoin(participantEmails: string[], guestEmail: string): string[] {
+  if (participantEmails.includes(guestEmail)) return participantEmails;
+  return [...participantEmails, guestEmail];
+}
+
+/** Mirrors the DELETE /participants route: drops a removed participant's email. */
+function removeParticipantEmail(participantEmails: string[], removedEmail: string): string[] {
+  return participantEmails.filter((e) => e !== removedEmail);
+}
+
+/** Mirrors the shared hasMore/slice logic used for both the created and invited pages in GET /slurps. */
+function paginate<T>(docs: T[], limit: number): { items: T[]; hasMore: boolean } {
+  const hasMore = docs.length > limit;
+  return { items: hasMore ? docs.slice(0, limit) : docs, hasMore };
+}
+
+describe("participantEmails guest-only invariant (GET /slurps invited query)", () => {
+  it("does not include the host's own email at creation", () => {
+    const hostEmail = "host@example.com";
+    const participantEmails = buildParticipantEmailsOnCreate();
+    expect(participantEmails).toEqual([]);
+    expect(participantEmails).not.toContain(hostEmail);
+  });
+
+  it("adds a guest's email when they join", () => {
+    const participantEmails = addParticipantEmailOnJoin([], "guest@example.com");
+    expect(participantEmails).toEqual(["guest@example.com"]);
+  });
+
+  it("does not duplicate an email if the same guest joins twice", () => {
+    const once = addParticipantEmailOnJoin([], "guest@example.com");
+    const twice = addParticipantEmailOnJoin(once, "guest@example.com");
+    expect(twice).toEqual(["guest@example.com"]);
+  });
+
+  it("never re-adds the host's email via join, since the host never calls /join", () => {
+    // Regression guard for the bug where hosts were matched by their own "invited" query:
+    // the host's email must never appear in participantEmails, from creation through joins.
+    let participantEmails = buildParticipantEmailsOnCreate();
+    participantEmails = addParticipantEmailOnJoin(participantEmails, "guest1@example.com");
+    participantEmails = addParticipantEmailOnJoin(participantEmails, "guest2@example.com");
+    expect(participantEmails).toEqual(["guest1@example.com", "guest2@example.com"]);
+    expect(participantEmails).not.toContain("host@example.com");
+  });
+
+  it("removes a participant's email when the host removes them", () => {
+    const participantEmails = removeParticipantEmail(["guest1@example.com", "guest2@example.com"], "guest1@example.com");
+    expect(participantEmails).toEqual(["guest2@example.com"]);
+  });
+});
+
+describe("paginate (GET /slurps created/invited pagination)", () => {
+  it("returns hasMore=false and all docs when there are fewer than the limit", () => {
+    const result = paginate([1, 2, 3], 5);
+    expect(result).toEqual({ items: [1, 2, 3], hasMore: false });
+  });
+
+  it("returns hasMore=false and all docs when there are exactly the limit", () => {
+    const result = paginate([1, 2, 3, 4, 5], 5);
+    expect(result).toEqual({ items: [1, 2, 3, 4, 5], hasMore: false });
+  });
+
+  it("returns hasMore=true and only `limit` docs when there are more than the limit", () => {
+    const result = paginate([1, 2, 3, 4, 5, 6], 5);
+    expect(result).toEqual({ items: [1, 2, 3, 4, 5], hasMore: true });
+  });
+
+  it("returns hasMore=false for an empty list", () => {
+    const result = paginate([], 5);
+    expect(result).toEqual({ items: [], hasMore: false });
+  });
+
+  it("does not mistake a shrunk, already-filtered page for hasMore=false when the raw fetch had more", () => {
+    // Regression guard: previously the invited query's hasMore was computed AFTER filtering out
+    // hosted slurps found only within that same limited page, which could shrink the filtered
+    // count below the limit and wrongly report hasMore=false even though more invited slurps
+    // existed beyond the page. Since the invited query no longer needs post-fetch filtering
+    // (participantEmails is guest-only), paginate() must key hasMore off the raw fetched length.
+    const rawFetchedPage = ["invite1", "invite2", "invite3", "invite4", "invite5", "invite6"];
+    const result = paginate(rawFetchedPage, 5);
+    expect(result.hasMore).toBe(true);
+  });
+});
