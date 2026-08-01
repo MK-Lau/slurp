@@ -2,8 +2,9 @@ import { SchemaType, VertexAI } from "@google-cloud/vertexai";
 import pino from "pino";
 
 const logger = pino();
-const MODEL = "gemini-2.5-flash";
-const LOCATION = "us-central1";
+const MODEL = "gemini-3.5-flash-lite";
+// gemini-3.5-flash-lite is only served from the "global" location, not us-central1.
+const LOCATION = "global";
 
 const RECEIPT_SCHEMA = {
   type: SchemaType.OBJECT,
@@ -74,7 +75,9 @@ export async function parseReceiptFromGcs(
   const project =
     process.env.GOOGLE_CLOUD_PROJECT ?? process.env.GCP_PROJECT;
 
-  const vertexAI = new VertexAI({ project, location: LOCATION });
+  // The SDK builds its default endpoint as `${location}-aiplatform.googleapis.com`,
+  // which doesn't exist for "global" — override with the bare host it actually serves from.
+  const vertexAI = new VertexAI({ project, location: LOCATION, apiEndpoint: "aiplatform.googleapis.com" });
   const generativeModel = vertexAI.getGenerativeModel(
     {
       model: MODEL,
