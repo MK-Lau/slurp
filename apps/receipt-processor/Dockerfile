@@ -25,6 +25,7 @@ RUN apk upgrade --no-cache && npm install -g npm@11
 COPY package*.json ./
 COPY apps/receipt-processor/package.json ./apps/receipt-processor/
 RUN npm ci --workspace=@slurp/receipt-processor --include-workspace-root --omit=dev
+RUN npm uninstall -g npm
 
 COPY --from=builder /app/apps/receipt-processor/dist ./apps/receipt-processor/dist
 
