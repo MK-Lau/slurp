@@ -101,29 +101,25 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
             </button>
           </div>
         ) : (
-          <div key={item.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors group">
+          <div key={item.id} className={isHost ? "px-3 py-2" : "flex items-center justify-between px-4 py-3"}>
             {isHost ? (
               <button
-                className="flex-1 flex items-center justify-between text-left text-sm"
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 text-left text-sm"
                 onClick={() => startEdit(item.id, item.name, item.price)}
+                aria-label={`Edit ${item.name}`}
               >
-                <span className="text-gray-800 dark:text-gray-200">{item.name}</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100 mr-3">{formatAmount(item.price, slurp.currencyConversion)}</span>
+                <span className="min-w-0 truncate rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-gray-800 transition-colors dark:border-gray-600 dark:bg-gray-800/70 dark:text-gray-200">
+                  {item.name}
+                </span>
+                <span className="min-w-24 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-right font-semibold text-gray-900 transition-colors dark:border-gray-600 dark:bg-gray-800/70 dark:text-gray-100">
+                  {formatAmount(item.price, slurp.currencyConversion)}
+                </span>
               </button>
             ) : (
               <>
                 <span className="text-sm text-gray-800 dark:text-gray-200">{item.name}</span>
                 <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatAmount(item.price, slurp.currencyConversion)}</span>
               </>
-            )}
-            {isHost && (
-              <button
-                onClick={() => void handleDelete(item.id)}
-                className="text-gray-200 dark:text-gray-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none shrink-0"
-                aria-label="Remove item"
-              >
-                ×
-              </button>
             )}
           </div>
         )
