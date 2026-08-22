@@ -17,7 +17,14 @@ infra/backends/*.tfbackend
 next-env.d.ts
 logs/
 scripts/results/
+playwright-report/
+test-results/
 firebase-debug.log
+firestore-debug.log
+# Emulator / test artifacts (firebase emulators:export, coverage)
+firestore_export/
+firestore-temp/
+coverage/
 .claude/*
 !.claude/settings.json
 !.claude/hooks/

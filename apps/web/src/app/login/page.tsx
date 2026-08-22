@@ -56,6 +56,7 @@ function LoginContent(): React.JSX.Element {
         } catch {
           setError("Sign-in link expired or already used. Please request a new one.");
           setStep("email");
+        } finally {
           setCompletingEmailLink(false);
         }
       } else {
