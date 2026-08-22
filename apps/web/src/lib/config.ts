@@ -6,6 +6,7 @@ export interface AppConfig {
   apiUrl: string;
   firestoreDatabase: string;
   appUrl: string;
+  authEmulatorUrl?: string;
 }
 
 let cached: AppConfig | null = null;
