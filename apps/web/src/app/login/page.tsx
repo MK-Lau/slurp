@@ -11,7 +11,7 @@ import type { SlurpPreviewResponse } from "@slurp/types";
 type Step = "choose" | "email" | "email-sent" | "email-link-confirm";
 
 function LoginContent(): React.JSX.Element {
-  const { user, loading, signIn, sendEmailSignInLink, isEmailSignInLink, completeEmailSignIn } = useAuth();
+  const { user, loading, redirectNewUser, consumeRedirectNewUser, signIn, sendEmailSignInLink, isEmailSignInLink, completeEmailSignIn } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
   const raw = params.get("redirect") ?? "/";
@@ -36,13 +36,19 @@ function LoginContent(): React.JSX.Element {
   const [completingEmailLink, setCompletingEmailLink] = useState(false);
 
   useEffect(() => {
+    if (!redirectNewUser) return;
+    setPendingOnboarding({ googleDisplayName: redirectNewUser.googleDisplayName });
+    consumeRedirectNewUser();
+  }, [redirectNewUser, consumeRedirectNewUser]);
+
+  useEffect(() => {
     // Firebase publishes the authenticated user before signIn() /
     // completeEmailSignIn() resolves with the new-user metadata. Do not let
     // this generic redirect win that race and skip onboarding.
-    if (!loading && user && !pendingOnboarding && !busy && !completingEmailLink) {
+    if (!loading && user && !redirectNewUser && !pendingOnboarding && !busy && !completingEmailLink) {
       router.replace(redirect);
     }
-  }, [user, loading, redirect, router, pendingOnboarding, busy, completingEmailLink]);
+  }, [user, loading, redirect, router, redirectNewUser, pendingOnboarding, busy, completingEmailLink]);
 
   useEffect(() => {
     if (loading || emailLinkCheckedRef.current) return;

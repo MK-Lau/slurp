@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import LoginPage from "./page";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -7,6 +7,8 @@ import LoginPage from "./page";
 const mockReplace = jest.fn();
 const mockIsEmailSignInLink = jest.fn();
 const mockCompleteEmailSignIn = jest.fn();
+const mockSignIn = jest.fn();
+const mockConsumeRedirectNewUser = jest.fn();
 const mockSearchParamsGet = jest.fn< string | null, [string]>(() => null);
 
 jest.mock("next/navigation", () => ({
@@ -27,12 +29,14 @@ const mockRefreshProfile = jest.fn().mockResolvedValue(undefined);
 const mockAuthValue: Record<string, unknown> = {
   user: null,
   loading: false,
-  signIn: jest.fn(),
+  signIn: (...args: unknown[]) => mockSignIn(...args),
   signOut: jest.fn(),
   sendEmailSignInLink: jest.fn(),
   isEmailSignInLink: (...args: unknown[]) => mockIsEmailSignInLink(...args),
   completeEmailSignIn: (...args: unknown[]) => mockCompleteEmailSignIn(...args),
   refreshProfile: mockRefreshProfile,
+  redirectNewUser: null,
+  consumeRedirectNewUser: mockConsumeRedirectNewUser,
   profile: { displayName: undefined, venmoUsername: undefined, dismissedVenmo: false, loading: false, ready: false },
   venmoPromptPending: false,
   triggerVenmoPrompt: jest.fn(),
@@ -141,5 +145,50 @@ describe("login email-link completing state regression (finally bug)", () => {
     await act(async () => { d.reject(new Error("expired")); });
     await waitFor(() => expect(screen.queryByText(/Signing you in/i)).not.toBeInTheDocument(), { timeout: 5000 });
     expect(await screen.findByText(/expired|already used/i, {}, { timeout: 5000 })).toBeInTheDocument();
+  });
+});
+
+describe("new-user onboarding by sign-in provider", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSearchParamsGet.mockReturnValue(null);
+    mockIsEmailSignInLink.mockResolvedValue(false);
+    mockAuthValue.user = null;
+    mockAuthValue.loading = false;
+    mockAuthValue.redirectNewUser = null;
+  });
+
+  it("shows onboarding when Google popup reports a new user", async () => {
+    mockSignIn.mockResolvedValue({ isNewUser: true, googleDisplayName: "Google User" });
+    render(<LoginPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Continue with Google/i }));
+
+    expect(await screen.findByText(/Welcome to Slurp/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Google User")).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("does not show onboarding when Google popup reports a returning user", async () => {
+    mockSignIn.mockResolvedValue({ isNewUser: false, googleDisplayName: "Existing User" });
+    render(<LoginPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Continue with Google/i }));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+    expect(screen.queryByText(/Welcome to Slurp/i)).not.toBeInTheDocument();
+  });
+
+  it("shows onboarding when Google redirect return reports a new user", async () => {
+    // Firebase publishes the authenticated user in the same initialization pass
+    // as the redirect metadata. The generic authenticated redirect must not win.
+    mockAuthValue.user = { uid: "redirect-user" };
+    mockAuthValue.redirectNewUser = { googleDisplayName: "Redirect User" };
+    render(<LoginPage />);
+
+    expect(await screen.findByText(/Welcome to Slurp/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Redirect User")).toBeInTheDocument();
+    expect(mockConsumeRedirectNewUser).toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
