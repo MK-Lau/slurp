@@ -104,7 +104,12 @@ app.put("/e2e-upload/:encodedPath", (req: Request, res: Response, next) => {
 
   // Validate the bytes Express actually parsed. Content-Length is controlled by
   // the caller and Node may represent repeated header values ambiguously.
-  const contentLength = Buffer.isBuffer(req.body) ? req.body.length : 0;
+  const uploadBody: unknown = req.body;
+  if (!Buffer.isBuffer(uploadBody)) {
+    res.status(400).json({ error: "Invalid upload body" });
+    return;
+  }
+  const contentLength = uploadBody.byteLength;
   const validation = validateE2eUploadRequest({
     gcsPath,
     contentType: rawContentType as "image/jpeg" | "image/png",
