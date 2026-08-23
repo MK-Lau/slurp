@@ -181,7 +181,7 @@ test("anonymous: javascript: redirect is sanitized to /", async ({ page }) => {
   expect(sanitized).toBe("/");
 });
 
-test("anonymous: malicious redirect https://evil.com/phish via real email-link lands at local /", async ({ page }) => {
+test("anonymous: malicious redirect https://evil.com/phish via real email-link lands in the local app", async ({ page }) => {
   await resetEmulators();
   const email = uniqueEmail();
   await signInViaEmailLink(page, { email, redirect: "https://evil.com/phish" });
@@ -189,7 +189,7 @@ test("anonymous: malicious redirect https://evil.com/phish via real email-link l
   // Must remain on the local app origin at "/" and never navigate to evil.com.
   const finalUrl = new URL(page.url());
   expect(finalUrl.origin).toBe(WEB_URL);
-  expect(finalUrl.pathname).toBe("/");
+  expect(finalUrl.pathname).toBe("/slurp");
   expect(page.url()).not.toContain("evil.com");
   await expect(page).not.toHaveURL(/\/login/);
 });

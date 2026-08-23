@@ -89,6 +89,24 @@ describe("login email-link completing state regression (finally bug)", () => {
     expect(mockCompleteEmailSignIn).toHaveBeenCalledWith("e2e@example.com");
   });
 
+  it("does not redirect when Firebase publishes the user before new-user metadata resolves", async () => {
+    localStorage.setItem("emailForSignIn", "race@example.com");
+    mockIsEmailSignInLink.mockResolvedValue(true);
+    const d = deferred<{ isNewUser: boolean }>();
+    mockCompleteEmailSignIn.mockReturnValue(d.promise);
+
+    const view = render(<LoginPage />);
+    expect(await screen.findByText(/Signing you in/i, {}, { timeout: 3000 })).toBeInTheDocument();
+
+    mockAuthValue.user = { uid: "race-user" };
+    view.rerender(<LoginPage />);
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    await act(async () => { d.resolve({ isNewUser: true }); });
+    expect(await screen.findByText(/Welcome to Slurp/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it("successful returning-user email-link completion clears completing state (not stuck on spinner)", async () => {
     localStorage.setItem("emailForSignIn", "returning@example.com");
     mockIsEmailSignInLink.mockResolvedValue(true);

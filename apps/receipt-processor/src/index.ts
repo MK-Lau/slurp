@@ -63,9 +63,9 @@ app.get("/health", (_req, res) => {
 // to the processor's e2e-upload URL returned by the API.
 
 const e2eUploadCors = cors({
-  origin: true,
+  origin: ["http://127.0.0.1:3100", "http://localhost:3100"],
   methods: ["PUT", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Content-Length"],
+  allowedHeaders: ["Content-Type"],
 });
 
 const e2eUploadRaw = express.raw({
@@ -102,11 +102,13 @@ app.put("/e2e-upload/:encodedPath", (req: Request, res: Response, next) => {
     return;
   }
 
-  const contentLength = Number(req.headers["content-length"] ?? (req.body as Buffer)?.length ?? 0);
+  // Validate the bytes Express actually parsed. Content-Length is controlled by
+  // the caller and Node may represent repeated header values ambiguously.
+  const contentLength = Buffer.isBuffer(req.body) ? req.body.length : 0;
   const validation = validateE2eUploadRequest({
     gcsPath,
     contentType: rawContentType as "image/jpeg" | "image/png",
-    contentLength: Number.isFinite(contentLength) ? contentLength : (req.body as Buffer)?.length ?? 0,
+    contentLength,
   });
 
   if (!validation.valid) {
@@ -114,7 +116,7 @@ app.put("/e2e-upload/:encodedPath", (req: Request, res: Response, next) => {
     return;
   }
 
-  if (!req.body || (req.body as Buffer).length === 0) {
+  if (contentLength === 0) {
     res.status(400).json({ error: "Empty body" });
     return;
   }

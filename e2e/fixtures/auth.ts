@@ -121,6 +121,10 @@ export async function signInViaEmailLink(
 
   const origin = new URL(page.url()).origin;
   const expectedRedirect = sanitizeRedirectForTest(redirect, origin);
+  // Authenticated visits to `/` are intentionally canonicalized by the app to
+  // `/slurp`. Waiting for the transient `/` is timing-dependent and can miss a
+  // correct client-side redirect chain.
+  const expectedLanding = expectedRedirect === "/" ? "/slurp" : expectedRedirect;
 
   // Condition-based wait: either onboarding appears or we reach the exact redirect.
   // No swallowed failures — timeout propagates as hard failure. No arbitrary sleeps.
@@ -130,7 +134,7 @@ export async function signInViaEmailLink(
       const cur = window.location.pathname + window.location.search + window.location.hash;
       return hasOnboarding || cur === expected;
     },
-    { expected: expectedRedirect },
+    { expected: expectedLanding },
     { timeout: 10000 }
   );
 
@@ -143,7 +147,7 @@ export async function signInViaEmailLink(
   await page.waitForURL(
     (url) => {
       const u = new URL(url.toString());
-      return u.pathname + u.search + u.hash === expectedRedirect;
+      return u.origin === origin && u.pathname + u.search + u.hash === expectedLanding;
     },
     { timeout: 15000 }
   );
@@ -153,12 +157,9 @@ export async function signInViaEmailLink(
   {
     const cur = new URL(page.url());
     const pq = cur.pathname + cur.search + cur.hash;
-    if (expectedRedirect !== "/") {
-      expect(pq).toBe(expectedRedirect);
-    } else {
-      expect(cur.pathname).not.toBe("/login");
-      expect(pq).toBe(expectedRedirect);
-    }
+    expect(cur.origin).toBe(origin);
+    expect(cur.pathname).not.toBe("/login");
+    expect(pq).toBe(expectedLanding);
   }
 
   return { email, displayName };

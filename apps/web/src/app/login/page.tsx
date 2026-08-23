@@ -36,10 +36,13 @@ function LoginContent(): React.JSX.Element {
   const [completingEmailLink, setCompletingEmailLink] = useState(false);
 
   useEffect(() => {
-    if (!loading && user && !pendingOnboarding) {
+    // Firebase publishes the authenticated user before signIn() /
+    // completeEmailSignIn() resolves with the new-user metadata. Do not let
+    // this generic redirect win that race and skip onboarding.
+    if (!loading && user && !pendingOnboarding && !busy && !completingEmailLink) {
       router.replace(redirect);
     }
-  }, [user, loading, redirect, router, pendingOnboarding]);
+  }, [user, loading, redirect, router, pendingOnboarding, busy, completingEmailLink]);
 
   useEffect(() => {
     if (loading || emailLinkCheckedRef.current) return;
