@@ -17,3 +17,11 @@ export function shouldBypassJwtVerification(env: {
   if (isSafeE2eRuntime(env)) return true;
   return false;
 }
+
+/**
+ * Never expose an unauthenticated processor beyond the local machine.
+ * Authenticated Cloud Run deployments must continue to accept external traffic.
+ */
+export function receiptProcessorListenHost(env: Parameters<typeof shouldBypassJwtVerification>[0]): string {
+  return shouldBypassJwtVerification(env) ? "127.0.0.1" : "0.0.0.0";
+}

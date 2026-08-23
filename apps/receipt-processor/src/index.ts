@@ -4,11 +4,12 @@ import pino from "pino";
 import { OAuth2Client } from "google-auth-library";
 import { processReceipt } from "./processor";
 import { isSafeE2eRuntime } from "./config/e2eReceiptConfig";
-import { shouldBypassJwtVerification } from "./config/jwtBypass";
+import { receiptProcessorListenHost, shouldBypassJwtVerification } from "./config/jwtBypass";
 import { validateE2eUploadRequest } from "./e2eUploadValidation";
 
 const app = express();
 const port = parseInt(process.env.PORT ?? "8080", 10);
+const listenHost = receiptProcessorListenHost(process.env as Record<string, string | undefined>);
 const logger = pino();
 const authClient = new OAuth2Client();
 
@@ -170,6 +171,6 @@ app.post("/", async (req: Request, res: Response) => {
   }
 });
 
-app.listen(port, () => {
-  logger.info({ port }, "slurp-receipt-processor listening");
+app.listen(port, listenHost, () => {
+  logger.info({ host: listenHost, port }, "slurp-receipt-processor listening");
 });

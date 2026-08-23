@@ -1,4 +1,4 @@
-import { shouldBypassJwtVerification } from "./jwtBypass";
+import { receiptProcessorListenHost, shouldBypassJwtVerification } from "./jwtBypass";
 
 const safeE2eEnv = {
   ENVIRONMENT: "e2e" as const,
@@ -100,5 +100,18 @@ describe("shouldBypassJwtVerification - legacy local + safe e2e only", () => {
         FIRESTORE_EMULATOR_HOST: "127.0.0.1:8085",
       })
     ).toBe(false);
+  });
+});
+
+describe("receiptProcessorListenHost", () => {
+  it("binds JWT-bypassed runtimes to loopback", () => {
+    expect(receiptProcessorListenHost({ ENVIRONMENT: "local" })).toBe("127.0.0.1");
+    expect(receiptProcessorListenHost(safeE2eEnv)).toBe("127.0.0.1");
+  });
+
+  it("binds authenticated deployed runtimes to all interfaces", () => {
+    expect(receiptProcessorListenHost({ ENVIRONMENT: "dev" })).toBe("0.0.0.0");
+    expect(receiptProcessorListenHost({ ENVIRONMENT: "prod" })).toBe("0.0.0.0");
+    expect(receiptProcessorListenHost({})).toBe("0.0.0.0");
   });
 });
