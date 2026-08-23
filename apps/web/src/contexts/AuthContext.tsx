@@ -32,6 +32,9 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   profile: AuthProfile;
+  /** New-user metadata recovered after returning from a Google redirect sign-in. */
+  redirectNewUser: { googleDisplayName: string | null } | null;
+  consumeRedirectNewUser: () => void;
   venmoPromptPending: boolean;
   triggerVenmoPrompt: () => void;
   clearVenmoPrompt: () => void;
@@ -55,10 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
   const [venmoPromptPending, setVenmoPromptPending] = useState(false);
+  const [redirectNewUser, setRedirectNewUser] = useState<{ googleDisplayName: string | null } | null>(null);
 
   const triggerVenmoPrompt = useCallback((): void => setVenmoPromptPending(true), []);
   const clearVenmoPrompt = useCallback((): void => setVenmoPromptPending(false), []);
   const markVenmoDismissed = useCallback((): void => setProfileDismissedVenmo(true), []);
+  const consumeRedirectNewUser = useCallback((): void => setRedirectNewUser(null), []);
 
   const refreshProfile = useCallback(async (): Promise<void> => {
     setProfileLoading(true);
@@ -80,7 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     getConfig()
       .then(async (config) => {
         const auth = initFirebase(config);
-        await getRedirectResult(auth).catch(() => {});
+        const redirectResult = await getRedirectResult(auth).catch(() => null);
+        if (redirectResult && (getAdditionalUserInfo(redirectResult)?.isNewUser ?? false)) {
+          setRedirectNewUser({ googleDisplayName: redirectResult.user.displayName });
+        }
         unsub = onAuthStateChanged(auth, (u) => {
           setUser(u);
           setLoading(false);
@@ -169,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, profile: { displayName: profileDisplayName, venmoUsername: profileVenmoUsername, dismissedVenmo: profileDismissedVenmo, loading: profileLoading, ready: profileReady }, venmoPromptPending, triggerVenmoPrompt, clearVenmoPrompt, markVenmoDismissed, refreshProfile, signIn, signOut, sendEmailSignInLink, isEmailSignInLink, completeEmailSignIn }}>
+    <AuthContext.Provider value={{ user, loading, profile: { displayName: profileDisplayName, venmoUsername: profileVenmoUsername, dismissedVenmo: profileDismissedVenmo, loading: profileLoading, ready: profileReady }, redirectNewUser, consumeRedirectNewUser, venmoPromptPending, triggerVenmoPrompt, clearVenmoPrompt, markVenmoDismissed, refreshProfile, signIn, signOut, sendEmailSignInLink, isEmailSignInLink, completeEmailSignIn }}>
       {children}
     </AuthContext.Provider>
   );

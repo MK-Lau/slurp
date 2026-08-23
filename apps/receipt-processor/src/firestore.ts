@@ -1,7 +1,7 @@
 import { Firestore } from "@google-cloud/firestore";
+import { resolveFirestoreDatabase } from "./config/firestoreDatabase";
 
-const env = process.env.ENVIRONMENT ?? "dev";
-const dbName = env === "prod" ? "slurp-prod" : "slurp-dev";
+const dbName = resolveFirestoreDatabase(process.env);
 const projectId =
   process.env.GOOGLE_CLOUD_PROJECT ?? process.env.GCP_PROJECT;
 

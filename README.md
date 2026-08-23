@@ -8,7 +8,7 @@ A hosted version is available at **[slurp.mklau.net](https://slurp.mklau.net)** 
 
 - **Receipt parsing** — upload a photo of a receipt and Gemini AI extracts all items and prices
 - **Manual item entry** — add items by hand if you don't have a receipt
-- **Invite links** — share a link with participants; no account required to join
+- **Invite links** — share a link with participants; guests must sign in (Google or email link) before joining
 - **Item selection** — each participant picks the items they ordered
 - **Tax & tip splitting** — split proportionally across confirmed selections
 - **Settlement summary** — see exactly who owes whom and how much
@@ -83,6 +83,20 @@ npm run dev --workspace=@slurp/web
 
 # Terminal 3 — Receipt processor (optional, only needed for receipt upload testing)
 ENVIRONMENT=dev GCP_PROJECT_ID=<your-project> RECEIPT_BUCKET=<your-bucket> npm run dev --workspace=@slurp/receipt-processor
+
+# Local direct processor (alternate, bypasses Pub/Sub; requires explicit ENVIRONMENT):
+# when RECEIPT_PROCESSOR_URL is set, the API POSTs directly to the processor — only
+# allowed for canonical HTTP loopback URLs (http://127.0.0.1:* or http://localhost:*)
+# without credentials, and only when ENVIRONMENT is exactly "local" or "dev"
+# (API direct URL resolver allows either), or exactly "e2e" with the same safe
+# E2E invariants required elsewhere. The directly invoked processor must run
+# ENVIRONMENT=local to bypass Pub/Sub JWT verification — a dev processor
+# expects authenticated Pub/Sub JWT and will reject direct POSTs (see
+# apps/receipt-processor/src/config/jwtBypass.ts). Missing/unknown ENVIRONMENT,
+# prod, non-loopback, HTTPS, credentialed, or ambiguous project config refuses
+# direct mode. Absent URL preserves the production Pub/Sub default. See
+# apps/api/.env.example for details, or run ./scripts/dev.sh (API
+# ENVIRONMENT=dev, processor ENVIRONMENT=local).
 ```
 
 Visit `http://localhost:3000`.
@@ -91,13 +105,17 @@ Visit `http://localhost:3000`.
 
 ```bash
 npm run build          # Build all workspaces
-npm test               # Run all tests
+npm test               # Run all tests (unit + E2E support)
 npm run lint           # Lint all workspaces
 
 # Per-workspace
 npm run build --workspace=@slurp/api
 npm test --workspace=@slurp/api
 ```
+
+### End-to-end tests
+
+E2E runs are hermetic: they use `firebase emulators:exec --project slurp-e2e` with fixed loopback ports (web `:3100`, API `:8081`, processor `:8082`, Firestore `:8085`, Auth `:9099`) and no GCP credentials. See **[docs/testing.md](docs/testing.md)** for prerequisites, first-time setup, headless/UI/debug/single-spec commands, port-conflict troubleshooting, emulator & no-cloud guarantees, email-link flow, receipt safety model, traces, and test-writing conventions.
 
 ## Architecture
 
@@ -260,7 +278,7 @@ Environments (`dev`, `prod`) are controlled via a single `infra/vars/main.tfvars
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `pr-checks.yml` | PR to `master` | Lint + test, Terraform plan for dev + prod (posts plan as PR comment) |
+| `pr-checks.yml` | PR to `master` | Lint + test, Terraform validate, isolated Playwright E2E (no GCP secrets; uploads traces on failure; concurrency cancellation) |
 | `deploy-dev.yml` | Push to `master` | Terraform apply → build + push Docker images → deploy to Cloud Run dev |
 | `deploy-prod.yml` | Manual dispatch or `v*.*.*` tag | Terraform apply → deploy to Cloud Run prod → retag images as `prod-latest` |
 

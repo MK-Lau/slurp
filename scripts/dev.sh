@@ -3,7 +3,14 @@
 #
 # The receipt processor runs on port 8081 and the API calls it directly
 # (RECEIPT_PROCESSOR_URL), bypassing Pub/Sub entirely so the deployed
-# dev processor is never involved.
+# dev processor is never involved. Direct mode requires canonical HTTP
+# loopback URLs (http://127.0.0.1:* or http://localhost:*) without
+# credentials. The API direct URL resolver allows ENVIRONMENT=local or dev
+# with loopback, but the directly invoked receipt processor must run
+# ENVIRONMENT=local to bypass Pub/Sub JWT verification — a dev processor
+# expects authenticated Pub/Sub JWT and will reject direct POSTs.
+# ENVIRONMENT=e2e is allowed only with the full safe E2E runtime — see
+# apps/api/src/lib/pubsub.ts and apps/receipt-processor/src/config/jwtBypass.ts.
 #
 # Prerequisites:
 #   gcloud auth application-default login
@@ -35,7 +42,7 @@ ENVIRONMENT=dev \
 
 echo "Starting receipt-processor on :8081..."
 PORT=8081 \
-  ENVIRONMENT=dev \
+  ENVIRONMENT=local \
   GOOGLE_CLOUD_PROJECT="$GCP_PROJECT" \
   RECEIPT_BUCKET="$RECEIPT_BUCKET" \
   npm run dev --workspace=@slurp/receipt-processor &
