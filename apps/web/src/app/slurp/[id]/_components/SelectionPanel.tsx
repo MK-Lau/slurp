@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { updateSelections, confirmSlurp, getSummary } from "@/lib/slurps";
 import { useVenmoUrl } from "@/hooks/useVenmoUrl";
 import type { Slurp, Participant } from "@slurp/types";
-import { computeAllBreakdowns } from "@slurp/types";
+import { computeAllBreakdowns, computeFixedItemShareCents } from "@slurp/types";
 import { formatAmount, getVenmoAmount, isVenmoEligible } from "@/lib/currency";
 import { partyStatus } from "@/lib/party";
 import { Btn, Card, Divider, EmptyState, VenmoIcon } from "@/components/ui";
@@ -136,7 +136,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
             : selectors.length;
           const remainingShares = Math.max(0, totalShares - claimedShares);
           const sharePrice = slurp.splitVersion === 2
-            ? item.price * Math.max(ownShares, 1) / totalShares
+            ? computeFixedItemShareCents(item) * Math.max(ownShares, 1) / 100
             : item.price / Math.max(selectors.length, 1);
           const othersWhoSelected = selectors
             .filter((p) => p.uid !== participant.uid)
@@ -162,7 +162,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-purple-700 dark:text-purple-400">
-                    {formatAmount(selected ? sharePrice : item.price / totalShares, slurp.currencyConversion)}
+                    {formatAmount(sharePrice, slurp.currencyConversion)}
                   </p>
                   {totalShares > 1 && (
                     <p className="text-[10px] text-gray-400">

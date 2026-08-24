@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getSummary, markAsPaid } from "@/lib/slurps";
 import { useVenmoUrl } from "@/hooks/useVenmoUrl";
 import type { Slurp, SummaryResponse } from "@slurp/types";
-import { CURRENCY_MAP } from "@slurp/types";
+import { CURRENCY_MAP, computeFixedItemShareCents } from "@slurp/types";
 import { formatAmount, getVenmoAmount, isVenmoEligible } from "@/lib/currency";
 import { partyStatus } from "@/lib/party";
 import { Avatar, Badge, Btn, Card, Divider, VenmoIcon } from "@/components/ui";
@@ -102,7 +102,7 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
     return remainingShares === 0 ? [] : [{
       item,
       remainingShares,
-      remainingAmount: item.price * remainingShares / (item.shareCount ?? 1),
+      remainingAmount: computeFixedItemShareCents(item) * remainingShares / 100,
     }];
   });
   const party = partyStatus(slurp);
@@ -196,7 +196,8 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
                   </div>
                 </div>
 
-                {isCurrentUser && !isHost && (
+                {isCurrentUser && !isHost
+                  && (slurp.splitVersion !== 2 || participantData?.status === "confirmed") && (
                   <div className="px-4 pb-4 flex flex-wrap gap-2">
                     {participantPaid ? (
                       <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-300 text-sm font-semibold">

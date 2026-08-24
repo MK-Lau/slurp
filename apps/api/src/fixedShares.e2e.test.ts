@@ -1,4 +1,4 @@
-import { computeAllBreakdowns } from "@slurp/types";
+import { computeAllBreakdowns, computeFixedItemShareCents } from "@slurp/types";
 import type { Slurp } from "@slurp/types";
 
 function newFixedSlurp(): Slurp {
@@ -48,6 +48,23 @@ describe("fixed-share end-to-end calculation flow", () => {
     const host = breakdowns.find((entry) => entry.uid === "host")!;
     expect(host.roundingAdjustment).toBe(0.01);
     expect(breakdowns.reduce((sum, entry) => sum + Math.round(entry.total * 100), 0)).toBe(8700);
+  });
+
+  it("uses the same floored cents for billed and displayed fixed shares", () => {
+    const item = { id: "shared", name: "Shared", price: 10, shareCount: 6 };
+    expect(computeFixedItemShareCents(item)).toBe(166);
+
+    const slurp: Slurp = {
+      ...newFixedSlurp(),
+      taxAmount: 0,
+      tipAmount: 0,
+      items: [item],
+      participants: [
+        { uid: "host", role: "host", status: "pending", selectedItemIds: [], selectedItemShares: {} },
+        { uid: "guest", role: "guest", status: "pending", selectedItemIds: ["shared"], selectedItemShares: { shared: 1 } },
+      ],
+    };
+    expect(computeAllBreakdowns(slurp).find((entry) => entry.uid === "guest")?.subtotal).toBe(1.66);
   });
 
   it("preserves legacy selector-count splitting when splitVersion is absent", () => {

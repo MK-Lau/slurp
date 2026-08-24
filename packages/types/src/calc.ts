@@ -18,6 +18,12 @@ export interface ParticipantBreakdown {
   total: number;
 }
 
+/** Whole cents billed for one configured fixed share of an item. */
+export function computeFixedItemShareCents(item: Item): number {
+  const configuredShares = Math.max(1, item.shareCount ?? 1);
+  return Math.floor(Math.round(item.price * 100) / configuredShares);
+}
+
 export function computeParticipantBreakdown(
   slurp: Slurp,
   participant: Participant,
@@ -96,7 +102,7 @@ function computeFixedShareBreakdowns(slurp: Slurp): ParticipantBreakdown[] {
   for (const item of slurp.items) {
     const shares = Math.max(1, item.shareCount ?? 1);
     const itemCents = Math.round(item.price * 100);
-    const perShareItemCents = Math.floor(itemCents / shares);
+    const perShareItemCents = computeFixedItemShareCents(item);
     const perShareTaxCents = subtotalCents > 0
       ? Math.floor(itemCents * taxCents / (shares * subtotalCents))
       : 0;

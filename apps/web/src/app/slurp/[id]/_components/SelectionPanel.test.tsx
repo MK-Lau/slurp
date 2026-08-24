@@ -172,6 +172,28 @@ describe("SelectionPanel — fixed shares", () => {
     expect(mockUpdateSelections).toHaveBeenCalledWith("slurp-1", { itemShares: { "item-1": 2 } });
   });
 
+  it("displays the same floored cent amount that the guest is billed", () => {
+    const slurp = fixedSlurp();
+    slurp.items = [{ id: "item-1", name: "Pizza", price: 10, shareCount: 6 }];
+    const participant = { ...fixedParticipant, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };
+    slurp.participants[1] = participant;
+
+    render(<SelectionPanel slurp={slurp} participant={participant} onUpdate={jest.fn()} />);
+
+    expect(screen.getAllByText("$1.66").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("$1.67")).toBeNull();
+  });
+
+  it("previews an unselected fixed share at the billable cent amount", () => {
+    const slurp = fixedSlurp();
+    slurp.items = [{ id: "item-1", name: "Pizza", price: 10, shareCount: 6 }];
+
+    render(<SelectionPanel slurp={slurp} participant={fixedParticipant} onUpdate={jest.fn()} />);
+
+    expect(screen.getByText("$1.66")).toBeDefined();
+    expect(screen.queryByText("$1.67")).toBeNull();
+  });
+
   it("shows that a confirmed fixed-share total is locked", () => {
     const slurp = fixedSlurp();
     const participant = { ...fixedParticipant, status: "confirmed" as const, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };

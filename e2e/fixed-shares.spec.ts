@@ -108,6 +108,19 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
   await expect(guestA.page.getByText("2 shares", { exact: true })).toBeVisible();
   await expect(guestA.page.getByText("$26.00", { exact: true })).toBeVisible();
 
+  await guestA.page.getByRole("button", { name: "Summary", exact: true }).click();
+  await expect(guestA.page.getByText("Subtotal", { exact: true }).first()).toBeVisible();
+  await expect(guestA.page.getByRole("button", { name: "Mark as paid" })).toHaveCount(0);
+  const pendingPay = await apiFetchWithToken(
+    guestA.page.request,
+    `/slurps/${slurpId}/pay`,
+    guestA.token,
+    { method: "POST" }
+  );
+  expect(pendingPay.status).toBe(400);
+  expect(pendingPay.body.error).toMatch(/confirm your shares/i);
+  await guestA.page.getByRole("button", { name: "My Items", exact: true }).click();
+
   const beforeRevisionChange = await apiFetchWithToken(
     guestA.page.request,
     `/slurps/${slurpId}`,
@@ -136,6 +149,8 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
   await expect(guestA.page.getByText("$26.00", { exact: true })).toBeVisible();
   await guestA.page.getByRole("button", { name: "Done — confirm selections" }).click();
   await expect(guestA.page.getByText("You've confirmed your selections")).toBeVisible({ timeout: 15_000 });
+  await guestA.page.getByRole("button", { name: "Summary", exact: true }).click();
+  await expect(guestA.page.getByRole("button", { name: "Mark as paid" })).toBeVisible({ timeout: 15_000 });
 
   const guestB = await joinSlurp(browser, invitePath, "GuestBeta");
 

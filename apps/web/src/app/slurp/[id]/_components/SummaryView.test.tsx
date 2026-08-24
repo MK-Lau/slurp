@@ -50,6 +50,24 @@ function makeSlurp(conversionOverrides: Partial<Slurp["currencyConversion"]> = {
   };
 }
 
+function makeFixedSlurp(status: "pending" | "confirmed"): Slurp {
+  const slurp = makeSlurp();
+  return {
+    ...slurp,
+    splitVersion: 2,
+    splitRevision: 1,
+    items: [{ id: "item-1", name: "Burger", price: 10, shareCount: 6 }],
+    participants: [
+      { ...slurp.participants[0], status: "pending", selectedItemShares: {} },
+      {
+        ...slurp.participants[1],
+        status,
+        selectedItemShares: { "item-1": 1 },
+      },
+    ],
+  };
+}
+
 const baseSummary = {
   slurpId: "slurp-1",
   hostVenmoUsername: "venmo-user",
@@ -131,6 +149,31 @@ describe("SummaryView — Pay in Venmo button visibility", () => {
     render(<SummaryView slurp={slurp} isHost={true} viewerUid={HOST_UID} onUpdate={jest.fn()} />);
     await flushMicrotasks();
     expect(screen.queryByText("Pay in Venmo")).toBeNull();
+  });
+
+  it("hides all payment actions until a fixed-share guest confirms", async () => {
+    render(<SummaryView slurp={makeFixedSlurp("pending")} isHost={false} viewerUid={VIEWER_UID} onUpdate={jest.fn()} />);
+    await flushMicrotasks();
+
+    expect(screen.queryByText("Pay in Venmo")).toBeNull();
+    expect(screen.queryByText("Mark as paid")).toBeNull();
+  });
+
+  it("shows payment actions after a fixed-share guest confirms", async () => {
+    render(<SummaryView slurp={makeFixedSlurp("confirmed")} isHost={false} viewerUid={VIEWER_UID} onUpdate={jest.fn()} />);
+    await flushMicrotasks();
+
+    expect(screen.getByText("Pay in Venmo")).toBeDefined();
+    expect(screen.getByText("Mark as paid")).toBeDefined();
+  });
+
+  it("shows only billable cents for remaining fixed shares", async () => {
+    render(<SummaryView slurp={makeFixedSlurp("confirmed")} isHost={false} viewerUid={VIEWER_UID} onUpdate={jest.fn()} />);
+    await flushMicrotasks();
+
+    expect(screen.getByText("Burger · 5 shares")).toBeDefined();
+    expect(screen.getByText("$8.30")).toBeDefined();
+    expect(screen.queryByText("$8.33")).toBeNull();
   });
 });
 
