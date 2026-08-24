@@ -37,6 +37,13 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
 
   async function handleToggle(itemId: string): Promise<void> {
     if (isConfirmed) return;
+    if (slurp.splitVersion === 2) {
+      const itemShares = { ...(participant.selectedItemShares ?? {}) };
+      if (itemShares[itemId]) delete itemShares[itemId];
+      else itemShares[itemId] = 1;
+      await saveFixedShares(itemShares);
+      return;
+    }
     const current = new Set(participant.selectedItemIds);
     if (current.has(itemId)) current.delete(itemId);
     else current.add(itemId);
@@ -52,11 +59,33 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
     }
   }
 
+  async function saveFixedShares(itemShares: Record<string, number>): Promise<void> {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateSelections(slurp.id, { itemShares });
+      onUpdate(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save shares");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleShareChange(itemId: string, delta: number): Promise<void> {
+    if (isConfirmed || saving) return;
+    const itemShares = { ...(participant.selectedItemShares ?? {}) };
+    const next = (itemShares[itemId] ?? 1) + delta;
+    if (next < 1) delete itemShares[itemId];
+    else itemShares[itemId] = next;
+    await saveFixedShares(itemShares);
+  }
+
   async function handleDone(): Promise<void> {
     setConfirming(true);
     setError(null);
     try {
-      const updated = await confirmSlurp(slurp.id);
+      const updated = await confirmSlurp(slurp.id, slurp.splitRevision);
       setEditing(false);
       onUpdate(updated);
     } catch (err) {
@@ -103,11 +132,70 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
         {slurp.items.map((item) => {
           const selected = participant.selectedItemIds.includes(item.id);
           const selectors = slurp.participants.filter((p) => p.selectedItemIds.includes(item.id));
-          const sharePrice = item.price / Math.max(selectors.length, 1);
+          const ownShares = participant.selectedItemShares?.[item.id] ?? (selected ? 1 : 0);
+          const totalShares = item.shareCount ?? 1;
+          const claimedShares = slurp.splitVersion === 2
+            ? slurp.participants.reduce((sum, p) => sum + (p.selectedItemShares?.[item.id] ?? 0), 0)
+            : selectors.length;
+          const remainingShares = Math.max(0, totalShares - claimedShares);
+          const sharePrice = slurp.splitVersion === 2
+            ? item.price * Math.max(ownShares, 1) / totalShares
+            : item.price / Math.max(selectors.length, 1);
           const othersWhoSelected = selectors
             .filter((p) => p.uid !== participant.uid)
             .map((p) => p.displayName?.split(" ")[0] ?? "?")
             .join(", ");
+
+          if (slurp.splitVersion === 2) return (
+            <div key={item.id} className={selected ? "bg-purple-50 dark:bg-purple-900/20" : ""}>
+              <button
+                onClick={() => void handleToggle(item.id)}
+                disabled={isConfirmed || saving || (!selected && remainingShares === 0)}
+                className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left disabled:opacity-60"
+              >
+                <div className={`shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${selected ? "bg-purple-600 border-purple-600" : "border-gray-300 dark:border-gray-600"}`}>
+                  {selected && <span className="text-white text-xs">✓</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Host set {totalShares === 1 ? "one person" : `${totalShares} equal shares`}
+                    {totalShares > 1 ? ` · ${remainingShares} remaining` : ""}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-semibold text-purple-700 dark:text-purple-400">
+                    {formatAmount(selected ? sharePrice : item.price / totalShares, slurp.currencyConversion)}
+                  </p>
+                  {totalShares > 1 && (
+                    <p className="text-[10px] text-gray-400">
+                      {selected ? `${ownShares} share${ownShares === 1 ? "" : "s"}` : "per share"}
+                    </p>
+                  )}
+                </div>
+              </button>
+              {selected && totalShares > 1 && !isConfirmed && (
+                <div className="px-4 pb-3 flex items-center justify-end gap-2">
+                  <span className="mr-auto text-xs text-purple-700 dark:text-purple-300">Your shares</span>
+                  <button
+                    type="button"
+                    aria-label={`Remove one share of ${item.name}`}
+                    onClick={() => void handleShareChange(item.id, -1)}
+                    disabled={saving}
+                    className="w-8 h-8 rounded-lg border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                  >−</button>
+                  <span className="w-6 text-center text-sm font-semibold">{ownShares}</span>
+                  <button
+                    type="button"
+                    aria-label={`Claim another share of ${item.name}`}
+                    onClick={() => void handleShareChange(item.id, 1)}
+                    disabled={saving || remainingShares === 0}
+                    className="w-8 h-8 rounded-lg border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 disabled:opacity-40"
+                  >+</button>
+                </div>
+              )}
+            </div>
+          );
 
           return (
             <button
@@ -187,8 +275,13 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
             </svg>
             Confirmed
           </span>
+          {slurp.splitVersion === 2 && (
+            <span className="w-full text-xs text-emerald-700 dark:text-emerald-300">
+              Your total is locked and will not change when other guests join.
+            </span>
+          )}
           {hostVenmoUsername && total > 0 && isVenmoEligible(slurp.currencyConversion) && (
-            party.incomplete ? (
+            party.incomplete && slurp.splitVersion !== 2 ? (
               <Btn variant="outline" size="md" onClick={() => setShowPartyWarning(true)}>
                 <VenmoIcon />
                 Pay in Venmo
@@ -215,7 +308,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
         </Btn>
       )}
 
-      {showPartyWarning && party.expectedTotal != null && (
+      {showPartyWarning && party.expectedTotal != null && slurp.splitVersion !== 2 && (
         <PartyIncompleteModal
           joined={party.joined}
           expectedTotal={party.expectedTotal}

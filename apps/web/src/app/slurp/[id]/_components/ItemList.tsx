@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { deleteItem, updateItem } from "@/lib/slurps";
 import type { Slurp } from "@slurp/types";
+import { MAX_PARTICIPANTS } from "@slurp/types";
 import { formatAmount } from "@/lib/currency";
 
 interface Props {
@@ -15,7 +16,11 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
+  const [splitSavingId, setSplitSavingId] = useState<string | null>(null);
   const savingRef = useRef(false);
+  const fixedAmountsLocked = slurp.splitVersion === 2 && slurp.participants.some(
+    (participant) => participant.status === "confirmed" || participant.paid
+  );
 
   function startEdit(itemId: string, name: string, price: number): void {
     setEditingId(itemId);
@@ -33,9 +38,15 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
     if (savingRef.current) return;
     const price = parseFloat(editPrice);
     if (!editName.trim() || isNaN(price) || price < 0) { cancelEdit(); return; }
+    const currentItem = slurp.items.find((item) => item.id === itemId);
+    if (!currentItem) { cancelEdit(); return; }
+    const body: { name?: string; price?: number } = {};
+    if (editName.trim() !== currentItem.name) body.name = editName.trim();
+    if (price !== currentItem.price) body.price = price;
+    if (Object.keys(body).length === 0) { cancelEdit(); return; }
     savingRef.current = true;
     try {
-      const updated = await updateItem(slurp.id, itemId, { name: editName.trim(), price });
+      const updated = await updateItem(slurp.id, itemId, body);
       onUpdate(updated);
       setEditingId(null);
     } catch (err) {
@@ -51,6 +62,18 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
       onUpdate(updated);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete item");
+    }
+  }
+
+  async function handleShareCount(itemId: string, shareCount: number): Promise<void> {
+    setSplitSavingId(itemId);
+    try {
+      const updated = await updateItem(slurp.id, itemId, { shareCount });
+      onUpdate(updated);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update item split");
+    } finally {
+      setSplitSavingId(null);
     }
   }
 
@@ -86,6 +109,8 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
               min="0"
               className="w-24 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
               value={editPrice}
+              disabled={fixedAmountsLocked}
+              title={fixedAmountsLocked ? "Amounts are locked because a participant has confirmed" : undefined}
               onChange={(e) => setEditPrice(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void handleSave(item.id);
@@ -101,7 +126,8 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
             </button>
           </div>
         ) : (
-          <div key={item.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors group">
+          <div key={item.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors group">
+            <div className="flex items-center justify-between">
             {isHost ? (
               <button
                 className="flex-1 flex items-center justify-between text-left text-sm"
@@ -124,6 +150,34 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
               >
                 ×
               </button>
+            )}
+            </div>
+            {isHost && slurp.splitVersion === 2 && (
+              <div className="mt-2 flex items-center gap-2">
+                <label htmlFor={`shares-${item.id}`} className="text-xs text-gray-500 dark:text-gray-400">
+                  Default split
+                </label>
+                <select
+                  id={`shares-${item.id}`}
+                  value={item.shareCount ?? 1}
+                  disabled={splitSavingId === item.id || fixedAmountsLocked}
+                  title={fixedAmountsLocked ? "Locked because a participant has confirmed" : undefined}
+                  onChange={(event) => void handleShareCount(item.id, Number(event.target.value))}
+                  className="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-400"
+                >
+                  {Array.from({ length: Math.max(item.shareCount ?? 1, slurp.expectedGuests != null ? slurp.expectedGuests + 1 : MAX_PARTICIPANTS) }, (_, index) => index + 1).map((count) => (
+                    <option key={count} value={count}>
+                      {count === 1
+                        ? "One person (100%)"
+                        : count === (slurp.expectedGuests ?? -2) + 1
+                          ? `Everyone (${count} shares)`
+                          : `${count} equal shares`}
+                    </option>
+                  ))}
+                </select>
+                {splitSavingId === item.id && <span className="text-xs text-gray-400">Saving…</span>}
+                {fixedAmountsLocked && <span className="text-xs text-gray-400">Locked after confirmation</span>}
+              </div>
             )}
           </div>
         )

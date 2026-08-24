@@ -5,6 +5,7 @@ import { BadRequestError, ConflictError, NotFoundError } from "../middleware/err
 import { requireHost, requireParticipant } from "../lib/guards";
 import { generateSignedUploadUrl } from "../lib/storage";
 import { publishReceiptJob } from "../lib/pubsub";
+import { isFixedFinanciallyLocked } from "../lib/fixedShares";
 import { receiptProcessHourlyLimiter, receiptProcessDailyLimiter } from "../middleware/rateLimiter";
 import type { Slurp } from "@slurp/types";
 
@@ -29,6 +30,9 @@ router.post(
 
       requireParticipant(slurp, uid);
       requireHost(slurp, uid);
+      if (isFixedFinanciallyLocked(slurp)) {
+        throw new ConflictError("Receipt changes are locked because a participant has confirmed");
+      }
 
       if (slurp.receiptStatus === "processing") {
         throw new ConflictError("Receipt is already being processed");
@@ -76,6 +80,9 @@ router.post(
 
         requireParticipant(slurp, uid);
         requireHost(slurp, uid);
+        if (isFixedFinanciallyLocked(slurp)) {
+          throw new ConflictError("Receipt changes are locked because a participant has confirmed");
+        }
 
         if (slurp.receiptStatus !== "pending") {
           throw new ConflictError("Receipt must be in pending status to process");

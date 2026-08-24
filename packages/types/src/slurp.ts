@@ -10,6 +10,8 @@ export interface Item {
   id: string;
   name: string;
   price: number;
+  /** Fixed equal portions for splitVersion 2 slurps. Absent on legacy records. */
+  shareCount?: number;
 }
 
 export interface Participant {
@@ -19,6 +21,8 @@ export interface Participant {
   role: ParticipantRole;
   status: ParticipantStatus;
   selectedItemIds: string[];
+  /** Number of fixed portions claimed per item for splitVersion 2 slurps. */
+  selectedItemShares?: Record<string, number>;
   paid?: boolean;
 }
 
@@ -36,6 +40,10 @@ export interface Slurp {
   hostEmail?: string;
   taxAmount: number;
   tipAmount: number;
+  /** Version 2 uses host-defined fixed shares. Absent means legacy selector-count splitting. */
+  splitVersion?: 2;
+  /** Increments whenever a version 2 financial configuration changes. */
+  splitRevision?: number;
   expectedGuests?: number; // guests besides the host; absent = not specified
   items: Item[];
   participants: Participant[];

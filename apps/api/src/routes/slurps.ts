@@ -19,6 +19,12 @@ import {
 } from "../middleware/errorHandler";
 import { requireHost, requireParticipant } from "../lib/guards";
 import { notifyAll } from "../lib/notify";
+import {
+  allFixedSharesClaimed,
+  isFixedFinanciallyLocked,
+  validateFixedShareClaims,
+  validateSplitRevision,
+} from "../lib/fixedShares";
 import { logger } from "../logger";
 import type { Slurp, Item, Participant, CurrencyConversion } from "@slurp/types";
 import { computeAllBreakdowns, CURRENCY_MAP, DEFAULT_SLURP_TITLE, MAX_PARTICIPANTS } from "@slurp/types";
@@ -128,6 +134,24 @@ function validatePrice(value: unknown): number {
   const n = Number(value);
   if (!isFinite(n) || n < 0) throw new BadRequestError("price must be a non-negative number");
   return n;
+}
+
+function validateShareCount(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_PARTICIPANTS) {
+    throw new BadRequestError(`shareCount must be a whole number between 1 and ${MAX_PARTICIPANTS}`);
+  }
+  return n;
+}
+
+function requireMutableFixedAmounts(slurp: Slurp): void {
+  if (isFixedFinanciallyLocked(slurp)) {
+    throw new BadRequestError("Amounts are locked because a participant has already confirmed");
+  }
+}
+
+function bumpSplitRevision(slurp: Slurp): void {
+  if (slurp.splitVersion === 2) slurp.splitRevision = (slurp.splitRevision ?? 0) + 1;
 }
 
 function validateString(value: unknown, field: string, maxLength: number): string {
@@ -252,6 +276,7 @@ router.post(
         role: "host",
         status: "pending",
         selectedItemIds: [],
+        selectedItemShares: {},
       };
       if (hostProfile?.displayName) hostParticipant.displayName = hostProfile.displayName;
       const slurp: Slurp = {
@@ -261,6 +286,8 @@ router.post(
         hostEmail: req.user.email,
         taxAmount,
         tipAmount,
+        splitVersion: 2,
+        splitRevision: 0,
         expectedGuests,
         items: [],
         participants: [hostParticipant],
@@ -368,14 +395,22 @@ router.patch(
         }
         let costChanged = false;
         if (req.body.taxAmount != null || req.body.tipAmount != null) {
+          requireMutableFixedAmounts(slurp);
           const taxTip = validateTaxTip(req.body);
           if (taxTip.taxAmount != null) { slurp.taxAmount = taxTip.taxAmount; costChanged = true; }
           if (taxTip.tipAmount != null) { slurp.tipAmount = taxTip.tipAmount; costChanged = true; }
         }
         const currencyConversion = validateCurrencyConversion(req.body);
-        if (currencyConversion != null) slurp.currencyConversion = currencyConversion;
+        if (currencyConversion != null) {
+          requireMutableFixedAmounts(slurp);
+          slurp.currencyConversion = currencyConversion;
+          costChanged = true;
+        }
         // Only reset confirmations when amounts owed actually change, not for display-only updates
-        if (costChanged) resetConfirmations(slurp);
+        if (costChanged) {
+          resetConfirmations(slurp);
+          bumpSplitRevision(slurp);
+        }
         slurp.updatedAt = new Date().toISOString();
         tx.set(ref, slurp);
         return slurp;
@@ -422,13 +457,15 @@ router.post(
         if (!snap.exists) throw new NotFoundError("Slurp not found");
         const slurp = normalizeSlurp(snap.data()!);
         requireHost(slurp, req.user.uid);
+        requireMutableFixedAmounts(slurp);
         const { name } = req.body;
         if (!name) throw new BadRequestError("name is required");
         validateString(name, "name", 64);
         const price = validatePrice(req.body.price);
         if (slurp.items.length >= 75) throw new BadRequestError("Maximum 75 items");
-        slurp.items.push({ id: nanoid(), name, price });
+        slurp.items.push({ id: nanoid(), name, price, ...(slurp.splitVersion === 2 ? { shareCount: 1 } : {}) });
         resetConfirmations(slurp);
+        bumpSplitRevision(slurp);
         slurp.updatedAt = new Date().toISOString();
         tx.set(ref, slurp);
         return slurp;
@@ -454,10 +491,32 @@ router.patch(
         requireHost(slurp, req.user.uid);
         const item = slurp.items.find((i: Item) => i.id === req.params.itemId);
         if (!item) throw new NotFoundError("Item not found");
+        let financialChanged = false;
         const { name } = req.body;
         if (name != null) item.name = validateString(name, "name", 64);
-        if (req.body.price != null) item.price = validatePrice(req.body.price);
-        resetConfirmations(slurp);
+        if (req.body.price != null) {
+          requireMutableFixedAmounts(slurp);
+          item.price = validatePrice(req.body.price);
+          financialChanged = true;
+        }
+        if (req.body.shareCount != null) {
+          if (slurp.splitVersion !== 2) throw new BadRequestError("Fixed shares are not available for this slurp");
+          requireMutableFixedAmounts(slurp);
+          const shareCount = validateShareCount(req.body.shareCount);
+          const claimed = slurp.participants.reduce(
+            (sum, participant) => sum + (participant.selectedItemShares?.[item.id] ?? 0),
+            0
+          );
+          if (shareCount < claimed) {
+            throw new BadRequestError(`Cannot reduce below ${claimed} already claimed shares`);
+          }
+          item.shareCount = shareCount;
+          financialChanged = true;
+        }
+        if (financialChanged) {
+          resetConfirmations(slurp);
+          bumpSplitRevision(slurp);
+        }
         slurp.updatedAt = new Date().toISOString();
         tx.set(ref, slurp);
         return slurp;
@@ -481,12 +540,15 @@ router.delete(
         if (!snap.exists) throw new NotFoundError("Slurp not found");
         const slurp = normalizeSlurp(snap.data()!);
         requireHost(slurp, req.user.uid);
+        requireMutableFixedAmounts(slurp);
         const { itemId } = req.params;
         slurp.items = slurp.items.filter((i: Item) => i.id !== itemId);
         for (const p of slurp.participants) {
           p.selectedItemIds = p.selectedItemIds.filter((id) => id !== itemId);
+          if (p.selectedItemShares) delete p.selectedItemShares[itemId];
         }
         resetConfirmations(slurp);
+        bumpSplitRevision(slurp);
         slurp.updatedAt = new Date().toISOString();
         tx.set(ref, slurp);
         return slurp;
@@ -545,6 +607,7 @@ router.post(
           role: "guest",
           status: "pending",
           selectedItemIds: [],
+          ...(slurp.splitVersion === 2 ? { selectedItemShares: {} } : {}),
         };
         const resolvedDisplayName = displayName || joinerProfile?.displayName;
         if (resolvedDisplayName) newParticipant.displayName = resolvedDisplayName;
@@ -589,6 +652,9 @@ router.delete(
         if (participantIndex === -1) throw new NotFoundError("Participant not found");
 
         const removed = slurp.participants[participantIndex];
+        if (slurp.splitVersion === 2 && removed.paid) {
+          throw new BadRequestError("Paid participants cannot be removed");
+        }
         slurp.participants.splice(participantIndex, 1);
         slurp.participantEmails = slurp.participantEmails.filter(
           (e) => e !== removed.email
@@ -626,15 +692,22 @@ router.put(
         if (!snap.exists) throw new NotFoundError("Slurp not found");
         const slurp = normalizeSlurp(snap.data()!);
         const p = requireParticipant(slurp, req.user.uid);
-        const { selectedItemIds } = req.body as { selectedItemIds: string[] };
-        if (!Array.isArray(selectedItemIds)) {
-          throw new BadRequestError("selectedItemIds array is required");
-        }
         const validIds = new Set(slurp.items.map((i: Item) => i.id));
-        for (const id of selectedItemIds) {
-          if (!validIds.has(id)) throw new BadRequestError(`Unknown item id: ${id}`);
+        if (slurp.splitVersion === 2) {
+          if (p.paid) throw new BadRequestError("Paid selections are locked");
+          const itemShares = validateFixedShareClaims(slurp, p.uid, req.body.itemShares);
+          p.selectedItemShares = itemShares;
+          p.selectedItemIds = Object.keys(itemShares);
+        } else {
+          const { selectedItemIds } = req.body as { selectedItemIds: string[] };
+          if (!Array.isArray(selectedItemIds)) {
+            throw new BadRequestError("selectedItemIds array is required");
+          }
+          for (const id of selectedItemIds) {
+            if (!validIds.has(id)) throw new BadRequestError(`Unknown item id: ${id}`);
+          }
+          p.selectedItemIds = selectedItemIds;
         }
-        p.selectedItemIds = selectedItemIds;
         p.status = "pending";
         slurp.updatedAt = new Date().toISOString();
         tx.set(ref, slurp);
@@ -660,11 +733,22 @@ router.post(
         if (!snap.exists) throw new NotFoundError("Slurp not found");
         const slurp = normalizeSlurp(snap.data()!);
         const p = requireParticipant(slurp, req.user.uid);
+        if (slurp.splitVersion === 2 && (slurp.receiptStatus === "pending" || slurp.receiptStatus === "processing")) {
+          throw new BadRequestError("Wait for receipt processing to finish before confirming");
+        }
+        if (slurp.splitVersion === 2 && Object.keys(p.selectedItemShares ?? {}).length === 0) {
+          throw new BadRequestError("Claim at least one share before confirming");
+        }
+        if (slurp.splitVersion === 2) {
+          validateSplitRevision(slurp, req.body.splitRevision);
+        }
         p.status = "confirmed";
         const allConfirmed = slurp.participants.every((p: Participant) => p.status === "confirmed");
-        const allItemsAccountedFor = slurp.items.every((item: Item) =>
-          slurp.participants.some((p: Participant) => p.selectedItemIds.includes(item.id))
-        );
+        const allItemsAccountedFor = slurp.splitVersion === 2
+          ? allFixedSharesClaimed(slurp)
+          : slurp.items.every((item: Item) =>
+              slurp.participants.some((participant: Participant) => participant.selectedItemIds.includes(item.id))
+            );
         if (allConfirmed && allItemsAccountedFor) {
           shouldNotify = true;
         }
@@ -746,6 +830,9 @@ router.post(
         const slurp = normalizeSlurp(snap.data()!);
         const p = requireParticipant(slurp, req.user.uid);
         if (p.role === "host") throw new BadRequestError("Host cannot mark as paid");
+        if (slurp.splitVersion === 2 && p.status !== "confirmed") {
+          throw new BadRequestError("Confirm your shares before marking as paid");
+        }
         p.paid = true;
         slurp.updatedAt = new Date().toISOString();
         tx.set(ref, slurp);

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Slurp, Participant } from "@slurp/types";
-import { computeParticipantBreakdown, CURRENCY_MAP } from "@slurp/types";
+import { computeAllBreakdowns, CURRENCY_MAP } from "@slurp/types";
 import SelectionPanel from "./SelectionPanel";
 import SummaryView from "./SummaryView";
 import ParticipantList from "./ParticipantList";
@@ -23,19 +23,14 @@ function TotalsAccordion({ slurp, participant }: { slurp: Slurp; participant: Pa
   const [open, setOpen] = useState(false);
 
   const breakdown = useMemo(() => {
-    const itemMap = new Map(slurp.items.map((i) => [i.id, i]));
-    const selectorCounts = new Map<string, number>();
-    for (const p of slurp.participants) {
-      for (const id of p.selectedItemIds) {
-        selectorCounts.set(id, (selectorCounts.get(id) ?? 0) + 1);
-      }
-    }
-    const totalSubtotal = slurp.participants.reduce((acc, p) =>
-      acc + p.selectedItemIds.reduce((s, id) => {
-        const item = itemMap.get(id);
-        return item ? s + item.price / Math.max(selectorCounts.get(id) ?? 1, 1) : s;
-      }, 0), 0);
-    return computeParticipantBreakdown(slurp, participant, totalSubtotal, selectorCounts);
+    return computeAllBreakdowns(slurp).find((entry) => entry.uid === participant.uid) ?? {
+      uid: participant.uid,
+      items: [],
+      subtotal: 0,
+      tax: 0,
+      tip: 0,
+      total: 0,
+    };
   }, [slurp, participant]);
 
   const symbol = CURRENCY_MAP[slurp.currencyConversion?.billedCurrency ?? ""]?.symbol ?? "$";

@@ -46,6 +46,7 @@ export type AddItemResponse = Slurp;
 export interface UpdateItemRequest {
   name?: string;
   price?: number;
+  shareCount?: number;
 }
 export type UpdateItemResponse = Slurp;
 
@@ -73,11 +74,15 @@ export interface RemoveParticipantRequest {
 
 // PUT /slurps/:id/selections
 export interface UpdateSelectionsRequest {
-  selectedItemIds: string[];
+  selectedItemIds?: string[];
+  itemShares?: Record<string, number>;
 }
 export type UpdateSelectionsResponse = GetSlurpResponse;
 
 // POST /slurps/:id/confirm
+export interface ConfirmRequest {
+  splitRevision?: number;
+}
 export type ConfirmResponse = GetSlurpResponse;
 
 // GET /slurps/:id/summary

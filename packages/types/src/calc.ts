@@ -28,8 +28,13 @@ export function computeParticipantBreakdown(
     .map((id) => {
       const item = itemMap.get(id);
       if (!item) return null;
-      const selectors = selectorCounts.get(id) ?? 1;
-      return { item, sharePrice: item.price / Math.max(selectors, 1) };
+      const fixedShares = slurp.splitVersion === 2
+        ? Math.max(1, participant.selectedItemShares?.[id] ?? 1)
+        : 1;
+      const divisor = slurp.splitVersion === 2
+        ? Math.max(item.shareCount ?? 1, 1)
+        : Math.max(selectorCounts.get(id) ?? 1, 1);
+      return { item, sharePrice: item.price * fixedShares / divisor };
     })
     .filter((x): x is ItemBreakdown => x !== null);
 
@@ -60,13 +65,18 @@ export function computeAllBreakdowns(slurp: Slurp): ParticipantBreakdown[] {
     selectorCounts.set(item.id, count);
   }
 
-  const totalSubtotal = slurp.participants.reduce((total, p) => {
-    return total + p.selectedItemIds.reduce((sum, id) => {
-      const item = itemMap.get(id);
-      if (!item) return sum;
-      return sum + item.price / Math.max(selectorCounts.get(id) ?? 1, 1);
-    }, 0);
-  }, 0);
+  // Fixed-share slurps allocate receipt-level charges against the entire receipt,
+  // including portions that have not been claimed yet. This keeps a confirmed
+  // participant's tax and tip stable while later guests join.
+  const totalSubtotal = slurp.splitVersion === 2
+    ? slurp.items.reduce((sum, item) => sum + item.price, 0)
+    : slurp.participants.reduce((total, p) => {
+        return total + p.selectedItemIds.reduce((sum, id) => {
+          const item = itemMap.get(id);
+          if (!item) return sum;
+          return sum + item.price / Math.max(selectorCounts.get(id) ?? 1, 1);
+        }, 0);
+      }, 0);
 
   return slurp.participants.map((p) => computeParticipantBreakdown(slurp, p, totalSubtotal, selectorCounts));
 }
