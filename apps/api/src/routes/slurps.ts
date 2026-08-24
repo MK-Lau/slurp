@@ -223,11 +223,10 @@ router.get(
         .map((d) => normalizeSlurp(d.data()!))
         .map((d) => sanitizeSlurpForResponse(d, uid, email));
 
-      const hostedIds = new Set(hostedSnap.docs.map((d) => d.id));
-      const filteredInvitedDocs = invitedSnap.docs.filter((d) => !hostedIds.has(d.id));
-      const hasMoreInvited = filteredInvitedDocs.length > limit;
-      const invitedDocs = hasMoreInvited ? filteredInvitedDocs.slice(0, limit) : filteredInvitedDocs;
-      const invited = invitedDocs
+      const invitedDocs = invitedSnap.docs;
+      const hasMoreInvited = invitedDocs.length > limit;
+      const invitedPageDocs = hasMoreInvited ? invitedDocs.slice(0, limit) : invitedDocs;
+      const invited = invitedPageDocs
         .map((d) => normalizeSlurp(d.data()!))
         .map((d) => sanitizeSlurpForResponse(d, uid, email));
 
@@ -284,7 +283,7 @@ router.post(
         expectedGuests,
         items: [],
         participants: [hostParticipant],
-        participantEmails: [req.user.email],
+        participantEmails: [],
         inviteToken: randomUUID(),
         removedUids: [],
         currencyConversion,

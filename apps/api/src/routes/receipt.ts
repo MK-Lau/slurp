@@ -45,10 +45,29 @@ router.post(
 
       const { uploadUrl, gcsPath } = await generateSignedUploadUrl(id, contentType);
 
-      await db.collection("slurps").doc(id).update({
-        receiptStatus: "pending",
-        receiptPath: gcsPath,
-        updatedAt: new Date().toISOString(),
+      // Signed URL generation is asynchronous. Re-read inside a transaction so
+      // a confirmation that lands while the URL is being generated cannot be
+      // overwritten with a new pending receipt state.
+      const ref = db.collection("slurps").doc(id);
+      await db.runTransaction(async (tx) => {
+        const currentSnap = await tx.get(ref);
+        if (!currentSnap.exists) throw new NotFoundError("Slurp not found");
+        const currentSlurp = currentSnap.data() as Slurp;
+
+        requireParticipant(currentSlurp, uid);
+        requireHost(currentSlurp, uid);
+        if (isFixedFinanciallyLocked(currentSlurp)) {
+          throw new ConflictError("Receipt changes are locked because a participant has confirmed");
+        }
+        if (currentSlurp.receiptStatus === "processing") {
+          throw new ConflictError("Receipt is already being processed");
+        }
+
+        tx.update(ref, {
+          receiptStatus: "pending",
+          receiptPath: gcsPath,
+          updatedAt: new Date().toISOString(),
+        });
       });
 
       res.json({ uploadUrl, gcsPath });

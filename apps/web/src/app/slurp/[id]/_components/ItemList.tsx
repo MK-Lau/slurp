@@ -93,7 +93,7 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
             }}
           >
             <input
-              className="flex-1 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="flex-1 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
               value={editName}
               maxLength={64}
               onChange={(e) => setEditName(e.target.value)}
@@ -107,7 +107,7 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
               type="number"
               step="0.01"
               min="0"
-              className="w-24 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-24 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
               value={editPrice}
               disabled={fixedAmountsLocked}
               title={fixedAmountsLocked ? "Amounts are locked because a participant has confirmed" : undefined}
@@ -126,15 +126,19 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
             </button>
           </div>
         ) : (
-          <div key={item.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors group">
-            <div className="flex items-center justify-between">
+          <div key={item.id} className={isHost ? "px-3 py-2" : "flex items-center justify-between px-4 py-3"}>
             {isHost ? (
               <button
-                className="flex-1 flex items-center justify-between text-left text-sm"
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 text-left text-sm"
                 onClick={() => startEdit(item.id, item.name, item.price)}
+                aria-label={`Edit ${item.name}`}
               >
-                <span className="text-gray-800 dark:text-gray-200">{item.name}</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100 mr-3">{formatAmount(item.price, slurp.currencyConversion)}</span>
+                <span className="min-w-0 truncate rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-gray-800 transition-colors dark:border-gray-600 dark:bg-gray-800/70 dark:text-gray-200">
+                  {item.name}
+                </span>
+                <span className="min-w-24 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-right font-semibold text-gray-900 transition-colors dark:border-gray-600 dark:bg-gray-800/70 dark:text-gray-100">
+                  {formatAmount(item.price, slurp.currencyConversion)}
+                </span>
               </button>
             ) : (
               <>
@@ -142,16 +146,6 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
                 <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatAmount(item.price, slurp.currencyConversion)}</span>
               </>
             )}
-            {isHost && (
-              <button
-                onClick={() => void handleDelete(item.id)}
-                className="text-gray-200 dark:text-gray-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none shrink-0"
-                aria-label="Remove item"
-              >
-                ×
-              </button>
-            )}
-            </div>
             {isHost && slurp.splitVersion === 2 && (
               <div className="mt-2 flex items-center gap-2">
                 <label htmlFor={`shares-${item.id}`} className="text-xs text-gray-500 dark:text-gray-400">

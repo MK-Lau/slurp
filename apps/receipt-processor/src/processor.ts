@@ -4,7 +4,7 @@ import type { Slurp, Item } from "@slurp/types";
 import { DEFAULT_SLURP_TITLE } from "@slurp/types";
 import { FieldValue } from "@google-cloud/firestore";
 import { db } from "./firestore";
-import { parseReceiptFromGcs } from "./gemini";
+import { parseReceipt } from "./parser";
 
 const logger = pino();
 
@@ -26,7 +26,7 @@ export async function processReceipt(slurpId: string, gcsPath: string): Promise<
   const gcsUri = `gs://${bucket}/${gcsPath}`;
 
   try {
-    const parsed = await parseReceiptFromGcs(gcsUri, mimeType);
+    const parsed = await parseReceipt(gcsUri, mimeType);
 
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);

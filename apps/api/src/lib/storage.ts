@@ -1,5 +1,6 @@
 import { Storage } from "@google-cloud/storage";
 import { nanoid } from "nanoid";
+import { resolveE2eUploadBaseUrl } from "./storageConfig";
 
 const storage = new Storage();
 
@@ -12,6 +13,12 @@ export async function generateSignedUploadUrl(
 
   const ext = contentType === "image/png" ? "png" : "jpg";
   const gcsPath = `receipts/${slurpId}/${nanoid()}.${ext}`;
+
+  const e2eBase = resolveE2eUploadBaseUrl(process.env);
+  if (e2eBase) {
+    const uploadUrl = `${e2eBase}/e2e-upload/${encodeURIComponent(gcsPath)}?contentType=${encodeURIComponent(contentType)}`;
+    return { uploadUrl, gcsPath };
+  }
 
   const [uploadUrl] = await storage.bucket(bucket).file(gcsPath).getSignedUrl({
     version: "v4",

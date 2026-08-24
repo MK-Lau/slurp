@@ -47,7 +47,7 @@ export interface Slurp {
   expectedGuests?: number; // guests besides the host; absent = not specified
   items: Item[];
   participants: Participant[];
-  participantEmails: string[]; // denormalized for Firestore array-contains queries
+  participantEmails: string[]; // guest emails only (excludes host); denormalized for Firestore array-contains queries
   inviteToken: string;
   removedUids: string[];
   receiptStatus?: "pending" | "processing" | "done" | "failed";
