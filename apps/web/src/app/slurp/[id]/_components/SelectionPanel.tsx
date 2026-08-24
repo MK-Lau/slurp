@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { updateSelections, confirmSlurp, getSummary } from "@/lib/slurps";
 import { useVenmoUrl } from "@/hooks/useVenmoUrl";
 import type { Slurp, Participant } from "@slurp/types";
-import { computeParticipantBreakdown } from "@slurp/types";
+import { computeAllBreakdowns } from "@slurp/types";
 import { formatAmount, getVenmoAmount, isVenmoEligible } from "@/lib/currency";
 import { partyStatus } from "@/lib/party";
 import { Btn, Card, Divider, EmptyState, VenmoIcon } from "@/components/ui";
@@ -95,13 +95,10 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
     }
   }
 
-  const selectorCounts = new Map(slurp.items.map((i) => [
-    i.id,
-    slurp.participants.filter((p) => p.selectedItemIds.includes(i.id)).length,
-  ]));
-  const fullReceiptTotal = slurp.items.reduce((s, i) => s + i.price, 0);
-  const breakdown = computeParticipantBreakdown(slurp, participant, fullReceiptTotal, selectorCounts);
-  const { items: itemSharePrices, tax, tip, total } = breakdown;
+  const breakdown = computeAllBreakdowns(slurp).find((entry) => entry.uid === participant.uid) ?? {
+    uid: participant.uid, items: [], subtotal: 0, tax: 0, tip: 0, total: 0,
+  };
+  const { items: itemSharePrices, tax, tip, roundingAdjustment, total } = breakdown;
   const venmoAmount = slurp.currencyConversion.enabled
     ? getVenmoAmount(total, slurp.currencyConversion)
     : total;
@@ -238,7 +235,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
       </Card>
 
       {/* Running total */}
-      {itemSharePrices.length > 0 && (
+      {(itemSharePrices.length > 0 || !!roundingAdjustment) && (
         <Card className="overflow-hidden">
           <div className="px-4 pt-4 pb-2 space-y-2">
             {itemSharePrices.map(({ item, sharePrice }) => (
@@ -256,6 +253,11 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
             <div className="flex justify-between text-sm text-gray-400">
               <span>Tip</span><span>{formatAmount(tip, slurp.currencyConversion)}</span>
             </div>
+            {!!roundingAdjustment && (
+              <div className="flex justify-between text-sm text-gray-400">
+                <span>Rounding adjustment</span><span>{formatAmount(roundingAdjustment, slurp.currencyConversion)}</span>
+              </div>
+            )}
           </div>
           <div className="px-4 py-3 bg-purple-50 dark:bg-purple-900/30 flex justify-between items-center rounded-b-2xl">
             <span className="font-bold text-purple-700">Your total</span>
@@ -302,7 +304,10 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
           size="lg"
           className="w-full"
           onClick={() => void handleDone()}
-          disabled={confirming || saving || participant.selectedItemIds.length === 0}
+          disabled={confirming || saving || (slurp.splitVersion === 2
+            ? Object.keys(participant.selectedItemShares ?? {}).length === 0
+              && !(participant.role === "host" && !!roundingAdjustment)
+            : participant.selectedItemIds.length === 0)}
         >
           {confirming ? "Saving…" : editing ? "Done — re-confirm selections" : "Done — confirm selections"}
         </Btn>

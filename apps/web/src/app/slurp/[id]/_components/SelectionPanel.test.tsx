@@ -111,6 +111,14 @@ describe("SelectionPanel — Pay in Venmo button visibility", () => {
     await flushMicrotasks();
     expect(screen.queryByText("Pay in Venmo")).toBeNull();
   });
+
+  it("matches the legacy summary tax allocation when receipt items remain unclaimed", () => {
+    const slurp = makeSlurp();
+    slurp.taxAmount = 4;
+    slurp.items.push({ id: "unclaimed", name: "Unclaimed side", price: 10 });
+    render(<SelectionPanel slurp={slurp} participant={confirmedParticipant} onUpdate={jest.fn()} />);
+    expect(screen.getByText("$4.00")).toBeDefined();
+  });
 });
 
 describe("SelectionPanel — fixed shares", () => {

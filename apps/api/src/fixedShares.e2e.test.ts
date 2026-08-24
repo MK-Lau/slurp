@@ -38,6 +38,18 @@ describe("fixed-share end-to-end calculation flow", () => {
     expect(after.total).toBe(48.33);
   });
 
+  it("assigns indivisible residual cents to the host and reconciles exactly", () => {
+    const slurp = newFixedSlurp();
+    slurp.participants.push(
+      { uid: "b", role: "guest", status: "confirmed", selectedItemIds: ["pizza", "app"], selectedItemShares: { pizza: 1, app: 1 } },
+      { uid: "c", role: "guest", status: "confirmed", selectedItemIds: ["pizza", "app"], selectedItemShares: { pizza: 1, app: 1 } },
+    );
+    const breakdowns = computeAllBreakdowns(slurp);
+    const host = breakdowns.find((entry) => entry.uid === "host")!;
+    expect(host.roundingAdjustment).toBe(0.01);
+    expect(breakdowns.reduce((sum, entry) => sum + Math.round(entry.total * 100), 0)).toBe(8700);
+  });
+
   it("preserves legacy selector-count splitting when splitVersion is absent", () => {
     const slurp = newFixedSlurp();
     delete slurp.splitVersion;

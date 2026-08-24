@@ -33,4 +33,19 @@ describe("GuestView — fixed-share totals", () => {
     expect(screen.getByText("$2.00")).toBeDefined();
     expect(screen.getByText("$13.00")).toBeDefined();
   });
+
+  it("shows both billed and home currencies when conversion is enabled", () => {
+    render(<GuestView
+      slurp={{
+        ...slurp,
+        currencyConversion: { enabled: true, billedCurrency: "JPY", homeCurrency: "USD", exchangeRate: 100 },
+      }}
+      participant={guest}
+      onUpdate={jest.fn()}
+      tab="items"
+    />);
+    fireEvent.click(screen.getByText("See totals"));
+    expect(screen.getByText("¥10.00 ($0.10)")).toBeDefined();
+    expect(screen.getByText("¥13.00 ($0.13)")).toBeDefined();
+  });
 });

@@ -18,6 +18,8 @@ next-env.d.ts
 logs/
 scripts/results/
 firebase-debug.log
+apps/web/playwright-report/
+apps/web/test-results/
 .claude/*
 !.claude/settings.json
 !.claude/hooks/

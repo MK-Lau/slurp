@@ -3,6 +3,8 @@ import {
   allFixedSharesClaimed,
   isFixedFinanciallyLocked,
   validateFixedShareClaims,
+  validateFixedShareCountChange,
+  validateFixedConfirmation,
   validateSplitRevision,
 } from "./fixedShares";
 
@@ -35,6 +37,11 @@ describe("fixed share API validation", () => {
     (claims) => expect(() => validateFixedShareClaims(slurp, "host", claims)).toThrow()
   );
 
+  it.each([{ pizza: "1" }, { pizza: true }, { pizza: null }])(
+    "rejects non-numeric share values instead of coercing them: %j",
+    (claims) => expect(() => validateFixedShareClaims(slurp, "host", claims)).toThrow()
+  );
+
   it("detects completion only when every fixed portion is claimed", () => {
     expect(allFixedSharesClaimed(slurp)).toBe(false);
     const complete = structuredClone(slurp);
@@ -43,10 +50,48 @@ describe("fixed share API validation", () => {
     expect(allFixedSharesClaimed(complete)).toBe(true);
   });
 
+  it("does not treat an empty slurp as fully claimed or assign tax as rounding", () => {
+    const empty = { ...slurp, items: [], taxAmount: 3, tipAmount: 2 };
+    expect(allFixedSharesClaimed(empty)).toBe(false);
+    expect(() => validateFixedConfirmation(empty, empty.participants[0], 0))
+      .toThrow("Claim at least one share");
+  });
+
+  it("rejects reducing an item below shares claimed in the transaction snapshot", () => {
+    expect(() => validateFixedShareCountChange(slurp, slurp.items[0], 1))
+      .toThrow("Cannot reduce below 2 already claimed shares");
+    expect(validateFixedShareCountChange(slurp, slurp.items[0], 2)).toBe(2);
+  });
+
+  it("rejects confirmation with no claims or while receipt processing is active", () => {
+    expect(() => validateFixedConfirmation(slurp, slurp.participants[0], 0))
+      .toThrow("Claim at least one share");
+    expect(() => validateFixedConfirmation(
+      { ...slurp, receiptStatus: "processing" },
+      slurp.participants[1],
+      0
+    )).toThrow("Wait for receipt processing");
+  });
+
+  it("allows the host to confirm when their only charge is the rounding residual", () => {
+    const roundingSlurp: Slurp = {
+      ...slurp,
+      items: [{ id: "shared", name: "Shared", price: 10, shareCount: 3 }],
+      participants: [
+        { ...slurp.participants[0], selectedItemIds: [], selectedItemShares: {} },
+        { ...slurp.participants[1], selectedItemIds: ["shared"], selectedItemShares: { shared: 1 } },
+        { ...slurp.participants[2], selectedItemIds: ["shared"], selectedItemShares: { shared: 2 } },
+      ],
+    };
+    expect(() => validateFixedConfirmation(roundingSlurp, roundingSlurp.participants[0], 0)).not.toThrow();
+  });
+
   it("rejects a stale or missing split revision at confirmation", () => {
     const revised = { ...slurp, splitRevision: 4 };
     expect(() => validateSplitRevision(revised, 3)).toThrow("The split changed");
-    expect(() => validateSplitRevision(revised, undefined)).toThrow("The split changed");
+    expect(() => validateSplitRevision(revised, undefined)).toThrow("splitRevision must be a whole number");
+    expect(() => validateSplitRevision(revised, "4")).toThrow("splitRevision must be a whole number");
+    expect(() => validateSplitRevision(revised, true)).toThrow("splitRevision must be a whole number");
     expect(() => validateSplitRevision(revised, 4)).not.toThrow();
   });
 

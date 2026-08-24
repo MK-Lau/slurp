@@ -23,7 +23,8 @@ import {
   allFixedSharesClaimed,
   isFixedFinanciallyLocked,
   validateFixedShareClaims,
-  validateSplitRevision,
+  validateFixedShareCountChange,
+  validateFixedConfirmation,
 } from "../lib/fixedShares";
 import { logger } from "../logger";
 import type { Slurp, Item, Participant, CurrencyConversion } from "@slurp/types";
@@ -133,14 +134,6 @@ function validateExpectedGuests(value: unknown): number {
 function validatePrice(value: unknown): number {
   const n = Number(value);
   if (!isFinite(n) || n < 0) throw new BadRequestError("price must be a non-negative number");
-  return n;
-}
-
-function validateShareCount(value: unknown): number {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 1 || n > MAX_PARTICIPANTS) {
-    throw new BadRequestError(`shareCount must be a whole number between 1 and ${MAX_PARTICIPANTS}`);
-  }
   return n;
 }
 
@@ -502,15 +495,7 @@ router.patch(
         if (req.body.shareCount != null) {
           if (slurp.splitVersion !== 2) throw new BadRequestError("Fixed shares are not available for this slurp");
           requireMutableFixedAmounts(slurp);
-          const shareCount = validateShareCount(req.body.shareCount);
-          const claimed = slurp.participants.reduce(
-            (sum, participant) => sum + (participant.selectedItemShares?.[item.id] ?? 0),
-            0
-          );
-          if (shareCount < claimed) {
-            throw new BadRequestError(`Cannot reduce below ${claimed} already claimed shares`);
-          }
-          item.shareCount = shareCount;
+          item.shareCount = validateFixedShareCountChange(slurp, item, req.body.shareCount);
           financialChanged = true;
         }
         if (financialChanged) {
@@ -695,10 +680,16 @@ router.put(
         const validIds = new Set(slurp.items.map((i: Item) => i.id));
         if (slurp.splitVersion === 2) {
           if (p.paid) throw new BadRequestError("Paid selections are locked");
+          if (req.body.selectedItemIds !== undefined) {
+            throw new BadRequestError("selectedItemIds is not valid for a fixed-share slurp");
+          }
           const itemShares = validateFixedShareClaims(slurp, p.uid, req.body.itemShares);
           p.selectedItemShares = itemShares;
           p.selectedItemIds = Object.keys(itemShares);
         } else {
+          if (req.body.itemShares !== undefined) {
+            throw new BadRequestError("itemShares is not valid for a legacy slurp");
+          }
           const { selectedItemIds } = req.body as { selectedItemIds: string[] };
           if (!Array.isArray(selectedItemIds)) {
             throw new BadRequestError("selectedItemIds array is required");
@@ -733,14 +724,8 @@ router.post(
         if (!snap.exists) throw new NotFoundError("Slurp not found");
         const slurp = normalizeSlurp(snap.data()!);
         const p = requireParticipant(slurp, req.user.uid);
-        if (slurp.splitVersion === 2 && (slurp.receiptStatus === "pending" || slurp.receiptStatus === "processing")) {
-          throw new BadRequestError("Wait for receipt processing to finish before confirming");
-        }
-        if (slurp.splitVersion === 2 && Object.keys(p.selectedItemShares ?? {}).length === 0) {
-          throw new BadRequestError("Claim at least one share before confirming");
-        }
         if (slurp.splitVersion === 2) {
-          validateSplitRevision(slurp, req.body.splitRevision);
+          validateFixedConfirmation(slurp, p, req.body.splitRevision);
         }
         p.status = "confirmed";
         const allConfirmed = slurp.participants.every((p: Participant) => p.status === "confirmed");

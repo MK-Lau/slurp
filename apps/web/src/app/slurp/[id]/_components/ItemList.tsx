@@ -165,11 +165,11 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
                   onChange={(event) => void handleShareCount(item.id, Number(event.target.value))}
                   className="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-400"
                 >
-                  {Array.from({ length: Math.max(item.shareCount ?? 1, slurp.expectedGuests != null ? slurp.expectedGuests + 1 : MAX_PARTICIPANTS) }, (_, index) => index + 1).map((count) => (
+                  {Array.from({ length: MAX_PARTICIPANTS }, (_, index) => index + 1).map((count) => (
                     <option key={count} value={count}>
                       {count === 1
                         ? "One person (100%)"
-                        : count === (slurp.expectedGuests ?? -2) + 1
+                        : slurp.expectedGuests != null && count === slurp.expectedGuests + 1
                           ? `Everyone (${count} shares)`
                           : `${count} equal shares`}
                     </option>

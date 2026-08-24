@@ -163,7 +163,7 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
               ) : null}
             </div>
 
-            {p.items.length === 0 ? (
+            {p.items.length === 0 && !p.roundingAdjustment ? (
               <p className="px-4 py-3 text-sm text-gray-400">No items selected.</p>
             ) : (
               <>
@@ -186,6 +186,11 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
                   <div className="flex justify-between text-xs text-gray-400">
                     <span>Tip</span><span>{formatAmount(p.tip, slurp.currencyConversion)}</span>
                   </div>
+                  {!!p.roundingAdjustment && (
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>Rounding adjustment</span><span>{formatAmount(p.roundingAdjustment, slurp.currencyConversion)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold text-purple-700 dark:text-purple-400 pt-1 border-t border-gray-100 dark:border-gray-700 mt-1">
                     <span>Total</span><span>{formatAmount(p.total, slurp.currencyConversion)}</span>
                   </div>

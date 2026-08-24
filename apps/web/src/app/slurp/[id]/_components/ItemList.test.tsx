@@ -19,6 +19,15 @@ const slurp: Slurp = {
 };
 
 describe("ItemList — host fixed-share defaults", () => {
+  it("offers every supported share count even when the expected party is smaller", () => {
+    render(<ItemList slurp={{ ...slurp, expectedGuests: 2 }} isHost onUpdate={jest.fn()} />);
+
+    const options = Array.from((screen.getByLabelText("Default split") as HTMLSelectElement).options);
+    expect(options).toHaveLength(10);
+    expect(options[2].text).toBe("Everyone (3 shares)");
+    expect(options[9].text).toBe("10 equal shares");
+  });
+
   it("lets the host set an item to everyone", async () => {
     mockUpdateItem.mockResolvedValue({ ...slurp, items: [{ ...slurp.items[0], shareCount: 4 }] });
     const onUpdate = jest.fn();

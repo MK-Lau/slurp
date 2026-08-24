@@ -73,10 +73,9 @@ export interface RemoveParticipantRequest {
 }
 
 // PUT /slurps/:id/selections
-export interface UpdateSelectionsRequest {
-  selectedItemIds?: string[];
-  itemShares?: Record<string, number>;
-}
+export type UpdateSelectionsRequest =
+  | { selectedItemIds: string[]; itemShares?: never }
+  | { itemShares: Record<string, number>; selectedItemIds?: never };
 export type UpdateSelectionsResponse = GetSlurpResponse;
 
 // POST /slurps/:id/confirm
@@ -94,6 +93,7 @@ export interface ParticipantSummary {
   subtotal: number;
   tax: number;
   tip: number;
+  roundingAdjustment?: number;
   total: number;
   paid?: boolean;
 }
