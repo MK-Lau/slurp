@@ -12,10 +12,12 @@ jest.mock("@/hooks/useVenmoUrl", () => ({
 }));
 
 const mockGetSummary = jest.fn();
+const mockUpdateSelections = jest.fn();
+const mockConfirmSlurp = jest.fn();
 jest.mock("@/lib/slurps", () => ({
   getSummary: (...args: unknown[]) => mockGetSummary(...args),
-  updateSelections: jest.fn(),
-  confirmSlurp: jest.fn(),
+  updateSelections: (...args: unknown[]) => mockUpdateSelections(...args),
+  confirmSlurp: (...args: unknown[]) => mockConfirmSlurp(...args),
 }));
 
 const PARTICIPANT_UID = "participant-uid-1";
@@ -108,6 +110,108 @@ describe("SelectionPanel — Pay in Venmo button visibility", () => {
     render(<SelectionPanel slurp={slurp} participant={confirmedParticipant} onUpdate={jest.fn()} />);
     await flushMicrotasks();
     expect(screen.queryByText("Pay in Venmo")).toBeNull();
+  });
+
+  it("matches the legacy summary tax allocation when receipt items remain unclaimed", () => {
+    const slurp = makeSlurp();
+    slurp.taxAmount = 4;
+    slurp.items.push({ id: "unclaimed", name: "Unclaimed side", price: 10 });
+    render(<SelectionPanel slurp={slurp} participant={confirmedParticipant} onUpdate={jest.fn()} />);
+    expect(screen.getByText("$4.00")).toBeDefined();
+  });
+});
+
+describe("SelectionPanel — fixed shares", () => {
+  const fixedParticipant: Participant = {
+    ...confirmedParticipant,
+    status: "pending",
+    selectedItemIds: [],
+    selectedItemShares: {},
+  };
+
+  function fixedSlurp(): Slurp {
+    const base = makeSlurp();
+    return {
+      ...base,
+      splitVersion: 2,
+      splitRevision: 4,
+      expectedGuests: 2,
+      items: [{ id: "item-1", name: "Pizza", price: 30, shareCount: 3 }],
+      participants: [
+        { ...base.participants[0], selectedItemShares: {} },
+        fixedParticipant,
+      ],
+    };
+  }
+
+  beforeEach(() => {
+    mockUpdateSelections.mockReset();
+    mockConfirmSlurp.mockReset();
+    mockGetSummary.mockResolvedValue({ slurpId: "slurp-1", participants: [] });
+  });
+
+  it("claims the host-defined default of one share with one tap", async () => {
+    const slurp = fixedSlurp();
+    mockUpdateSelections.mockResolvedValue({ ...slurp, viewerUid: PARTICIPANT_UID, viewerEmail: "viewer@example.com" });
+    render(<SelectionPanel slurp={slurp} participant={fixedParticipant} onUpdate={jest.fn()} />);
+
+    await act(async () => { fireEvent.click(screen.getByText("Pizza")); });
+
+    expect(mockUpdateSelections).toHaveBeenCalledWith("slurp-1", { itemShares: { "item-1": 1 } });
+  });
+
+  it("allows a guest to claim another available share", async () => {
+    const slurp = fixedSlurp();
+    const participant = { ...fixedParticipant, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };
+    slurp.participants[1] = participant;
+    mockUpdateSelections.mockResolvedValue({ ...slurp, viewerUid: PARTICIPANT_UID, viewerEmail: "viewer@example.com" });
+    render(<SelectionPanel slurp={slurp} participant={participant} onUpdate={jest.fn()} />);
+
+    await act(async () => { fireEvent.click(screen.getByLabelText("Claim another share of Pizza")); });
+
+    expect(mockUpdateSelections).toHaveBeenCalledWith("slurp-1", { itemShares: { "item-1": 2 } });
+  });
+
+  it("displays the same floored cent amount that the guest is billed", () => {
+    const slurp = fixedSlurp();
+    slurp.items = [{ id: "item-1", name: "Pizza", price: 10, shareCount: 6 }];
+    const participant = { ...fixedParticipant, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };
+    slurp.participants[1] = participant;
+
+    render(<SelectionPanel slurp={slurp} participant={participant} onUpdate={jest.fn()} />);
+
+    expect(screen.getAllByText("$1.66").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("$1.67")).toBeNull();
+  });
+
+  it("previews an unselected fixed share at the billable cent amount", () => {
+    const slurp = fixedSlurp();
+    slurp.items = [{ id: "item-1", name: "Pizza", price: 10, shareCount: 6 }];
+
+    render(<SelectionPanel slurp={slurp} participant={fixedParticipant} onUpdate={jest.fn()} />);
+
+    expect(screen.getByText("$1.66")).toBeDefined();
+    expect(screen.queryByText("$1.67")).toBeNull();
+  });
+
+  it("shows that a confirmed fixed-share total is locked", () => {
+    const slurp = fixedSlurp();
+    const participant = { ...fixedParticipant, status: "confirmed" as const, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };
+    slurp.participants[1] = participant;
+    render(<SelectionPanel slurp={slurp} participant={participant} onUpdate={jest.fn()} />);
+    expect(screen.getByText(/Your total is locked/)).toBeDefined();
+  });
+
+  it("confirms the exact split revision shown to the guest", async () => {
+    const slurp = fixedSlurp();
+    const participant = { ...fixedParticipant, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };
+    slurp.participants[1] = participant;
+    mockConfirmSlurp.mockResolvedValue({ ...slurp, viewerUid: PARTICIPANT_UID, viewerEmail: "viewer@example.com" });
+    render(<SelectionPanel slurp={slurp} participant={participant} onUpdate={jest.fn()} />);
+
+    await act(async () => { fireEvent.click(screen.getByText("Done — confirm selections")); });
+
+    expect(mockConfirmSlurp).toHaveBeenCalledWith("slurp-1", 4);
   });
 });
 

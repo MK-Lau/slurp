@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getSummary, markAsPaid } from "@/lib/slurps";
 import { useVenmoUrl } from "@/hooks/useVenmoUrl";
 import type { Slurp, SummaryResponse } from "@slurp/types";
-import { CURRENCY_MAP } from "@slurp/types";
+import { CURRENCY_MAP, computeFixedItemShareCents } from "@slurp/types";
 import { formatAmount, getVenmoAmount, isVenmoEligible } from "@/lib/currency";
 import { partyStatus } from "@/lib/party";
 import { Avatar, Badge, Btn, Card, Divider, VenmoIcon } from "@/components/ui";
@@ -90,7 +90,21 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
   }
 
   const claimedItemIds = new Set(slurp.participants.flatMap((p) => p.selectedItemIds));
-  const unclaimedItems = slurp.items.filter((item) => !claimedItemIds.has(item.id));
+  const unclaimedItems = slurp.items.flatMap((item) => {
+    if (slurp.splitVersion !== 2) {
+      return claimedItemIds.has(item.id) ? [] : [{ item, remainingShares: 1, remainingAmount: item.price }];
+    }
+    const claimedShares = slurp.participants.reduce(
+      (sum, participant) => sum + (participant.selectedItemShares?.[item.id] ?? 0),
+      0
+    );
+    const remainingShares = Math.max(0, (item.shareCount ?? 1) - claimedShares);
+    return remainingShares === 0 ? [] : [{
+      item,
+      remainingShares,
+      remainingAmount: computeFixedItemShareCents(item) * remainingShares / 100,
+    }];
+  });
   const party = partyStatus(slurp);
 
   return (
@@ -112,10 +126,10 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
         <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4">
           <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Unclaimed Items ({unclaimedItems.length})</p>
           <ul className="text-sm divide-y divide-amber-200 dark:divide-amber-700">
-            {unclaimedItems.map((item) => (
+            {unclaimedItems.map(({ item, remainingShares, remainingAmount }) => (
               <li key={item.id} className="py-1.5 flex justify-between text-amber-900 dark:text-amber-300">
-                <span>{item.name}</span>
-                <span>{formatAmount(item.price, slurp.currencyConversion)}</span>
+                <span>{item.name}{slurp.splitVersion === 2 ? ` · ${remainingShares} share${remainingShares === 1 ? "" : "s"}` : ""}</span>
+                <span>{formatAmount(remainingAmount, slurp.currencyConversion)}</span>
               </li>
             ))}
           </ul>
@@ -149,7 +163,7 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
               ) : null}
             </div>
 
-            {p.items.length === 0 ? (
+            {p.items.length === 0 && !p.roundingAdjustment ? (
               <p className="px-4 py-3 text-sm text-gray-400">No items selected.</p>
             ) : (
               <>
@@ -172,12 +186,18 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
                   <div className="flex justify-between text-xs text-gray-400">
                     <span>Tip</span><span>{formatAmount(p.tip, slurp.currencyConversion)}</span>
                   </div>
+                  {!!p.roundingAdjustment && (
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>Rounding adjustment</span><span>{formatAmount(p.roundingAdjustment, slurp.currencyConversion)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold text-purple-700 dark:text-purple-400 pt-1 border-t border-gray-100 dark:border-gray-700 mt-1">
                     <span>Total</span><span>{formatAmount(p.total, slurp.currencyConversion)}</span>
                   </div>
                 </div>
 
-                {isCurrentUser && !isHost && (
+                {isCurrentUser && !isHost
+                  && (slurp.splitVersion !== 2 || participantData?.status === "confirmed") && (
                   <div className="px-4 pb-4 flex flex-wrap gap-2">
                     {participantPaid ? (
                       <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-300 text-sm font-semibold">
@@ -187,7 +207,7 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
                       <Btn
                         variant="success"
                         size="sm"
-                        onClick={() => (party.incomplete ? setWarning({ kind: "paid" }) : void handleMarkAsPaid())}
+                        onClick={() => (party.incomplete && slurp.splitVersion !== 2 ? setWarning({ kind: "paid" }) : void handleMarkAsPaid())}
                         disabled={paying}
                       >
                         {paying ? "Marking…" : "Mark as paid"}
@@ -198,7 +218,7 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
                         username={hostVenmoUsername}
                         amount={slurp.currencyConversion.enabled ? getVenmoAmount(p.total, slurp.currencyConversion) : p.total}
                         note={"Slurp: " + slurp.title}
-                        {...(party.incomplete
+                        {...(party.incomplete && slurp.splitVersion !== 2
                           ? { onWarn: (url: string) => setWarning({ kind: "venmo", url }) }
                           : {})}
                       />
@@ -211,7 +231,7 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
         );
       })}
 
-      {warning && party.expectedTotal != null && (
+      {warning && party.expectedTotal != null && slurp.splitVersion !== 2 && (
         <PartyIncompleteModal
           joined={party.joined}
           expectedTotal={party.expectedTotal}

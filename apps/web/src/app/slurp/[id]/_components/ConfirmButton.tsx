@@ -26,7 +26,7 @@ export default function ConfirmButton({ slurp, participant, onUpdate }: Props): 
     setLoading(true);
     setError(null);
     try {
-      const updated = await confirmSlurp(slurp.id);
+      const updated = await confirmSlurp(slurp.id, slurp.splitRevision);
       onUpdate(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to confirm");

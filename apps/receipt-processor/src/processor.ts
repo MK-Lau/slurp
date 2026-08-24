@@ -51,6 +51,7 @@ export async function processReceipt(slurpId: string, gcsPath: string): Promise<
           id: nanoid(),
           name: i.name,
           price: unitPrice,
+          ...(slurp.splitVersion === 2 ? { shareCount: 1 } : {}),
         }));
       });
 
@@ -63,6 +64,7 @@ export async function processReceipt(slurpId: string, gcsPath: string): Promise<
         receiptWarningDismissed: FieldValue.delete(),
         updatedAt: new Date().toISOString(),
       };
+      if (slurp.splitVersion === 2) update.splitRevision = FieldValue.increment(1);
 
       if (parsed.confidence === "medium") {
         update.receiptWarning = MEDIUM_CONFIDENCE_WARNING;

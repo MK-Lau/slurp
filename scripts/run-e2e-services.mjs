@@ -127,6 +127,25 @@ async function signalChildren(signal) {
         }
       } catch {}
     }
+  } else if (process.platform !== "win32") {
+    // If a wrapper exits before shutdown, its descendants are reparented and
+    // can no longer be found by walking the wrapper's process tree. macOS does
+    // not expose /proc, so locate those descendants by the per-run marker they
+    // inherited. The UUID scopes cleanup to this orchestrator invocation.
+    try {
+      const { stdout } = await execFileAsync(
+        "ps",
+        ["eww", "-ax", "-o", "pid=", "-o", "command="],
+        { maxBuffer: 20 * 1024 * 1024 }
+      );
+      const marker = `SLURP_E2E_ORCHESTRATOR_ID=${runId}`;
+      for (const line of stdout.split("\n")) {
+        if (!line.includes(marker)) continue;
+        const pid = Number(line.trim().split(/\s+/, 1)[0]);
+        if (!Number.isInteger(pid) || pid === process.pid) continue;
+        try { process.kill(pid, signal); } catch {}
+      }
+    } catch {}
   }
 }
 

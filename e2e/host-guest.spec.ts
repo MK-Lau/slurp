@@ -1,57 +1,12 @@
-import { test, expect, signInViaEmailLink, uniqueEmail } from "./fixtures/test";
+import {
+  apiFetchWithToken,
+  expect,
+  installBearerCapture,
+  signInViaEmailLink,
+  test,
+  uniqueEmail,
+} from "./fixtures/test";
 import { resetEmulators } from "./support/reset-emulators";
-import type { Page, Request } from "@playwright/test";
-
-const API_URL = "http://127.0.0.1:8081";
-
-function installBearerCapture(page: Page): { get: () => string | null; wait: (timeoutMs?: number) => Promise<string> } {
-  let captured: string | null = null;
-  const onRequest = (req: Request): void => {
-    const auth = req.headers()["authorization"];
-    if (auth?.startsWith("Bearer ")) {
-      const t = auth.slice(7).trim();
-      if (t.length > 20) captured = t;
-    }
-  };
-  page.on("request", onRequest);
-  return {
-    get: () => captured,
-    wait: async (timeoutMs = 10000): Promise<string> => {
-      // Poll condition via expect.poll rather than arbitrary waitForTimeout loop
-      await expect.poll(() => captured, { timeout: timeoutMs }).not.toBeNull();
-      if (!captured) throw new Error("Timed out waiting for Authorization Bearer token from page requests — no app request with Bearer was observed");
-      return captured;
-    },
-  };
-}
-
-async function apiFetchWithToken(
-  request: import("@playwright/test").APIRequestContext,
-  path: string,
-  token: string,
-  opts: { method?: string; body?: unknown } = {}
-): Promise<{ status: number; body: any; text: string }> {
-  const method = opts.method ?? "GET";
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-  let res;
-  if (method === "GET") res = await request.get(`${API_URL}${path}`, { headers });
-  else if (method === "POST") res = await request.post(`${API_URL}${path}`, { headers, data: opts.body ?? {} });
-  else if (method === "PATCH") res = await request.patch(`${API_URL}${path}`, { headers, data: opts.body ?? {} });
-  else if (method === "PUT") res = await request.put(`${API_URL}${path}`, { headers, data: opts.body ?? {} });
-  else if (method === "DELETE") res = await request.delete(`${API_URL}${path}`, { headers, data: opts.body });
-  else throw new Error(`unsupported method ${method}`);
-  const text = await res.text();
-  let body: any;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    body = text;
-  }
-  return { status: res.status(), body, text };
-}
 
 test("host-guest: end-to-end invite → join → selections → summary with authZ negatives", async ({ browser }) => {
   await resetEmulators();
@@ -112,6 +67,19 @@ test("host-guest: end-to-end invite → join → selections → summary with aut
   await expect(hostPage.getByRole("heading", { level: 1, name: title })).toBeVisible({ timeout: 10000 });
   await expect(hostPage.getByText("Host").first()).toBeVisible({ timeout: 10000 });
 
+  // New slurps use host-defined fixed shares. Split the shared item between
+  // host and guest while leaving the host-only item at its one-person default.
+  const splitControls = hostPage.getByLabel("Default split");
+  await expect(splitControls).toHaveCount(2, { timeout: 10000 });
+  {
+    const response = hostPage.waitForResponse(
+      (candidate) => candidate.url().includes("/items/") && candidate.request().method() === "PATCH",
+      { timeout: 10000 }
+    );
+    await splitControls.first().selectOption("2");
+    expect((await response).status()).toBe(200);
+  }
+
   // Capture invite URL from UI (not via direct API seeding)
   const inviteLinkEl = hostPage.locator(".font-mono").first();
   await expect(inviteLinkEl).toBeVisible({ timeout: 10000 });
@@ -139,6 +107,8 @@ test("host-guest: end-to-end invite → join → selections → summary with aut
   expect(hostGet.status).toBe(200);
   expect(hostGet.body.inviteToken).toBe(inviteToken);
   expect(hostGet.body.hostEmail).toBe(hostEmail);
+  expect(hostGet.body.splitVersion).toBe(2);
+  expect(hostGet.body.splitRevision).toBe(3);
   expect(Array.isArray(hostGet.body.items)).toBe(true);
   expect(hostGet.body.items.length).toBe(2);
 

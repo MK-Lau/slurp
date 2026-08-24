@@ -61,8 +61,11 @@ export const removeParticipant = (id: string, participantUid: string, block?: bo
 export const updateSelections = (id: string, body: UpdateSelectionsRequest): Promise<GetSlurpResponse> =>
   apiFetch<GetSlurpResponse>(`/slurps/${id}/selections`, { method: "PUT", body: JSON.stringify(body) });
 
-export const confirmSlurp = (id: string): Promise<GetSlurpResponse> =>
-  apiFetch<GetSlurpResponse>(`/slurps/${id}/confirm`, { method: "POST" });
+export const confirmSlurp = (id: string, splitRevision?: number): Promise<GetSlurpResponse> =>
+  apiFetch<GetSlurpResponse>(`/slurps/${id}/confirm`, {
+    method: "POST",
+    body: JSON.stringify(splitRevision == null ? {} : { splitRevision }),
+  });
 
 export const getSummary = (id: string): Promise<SummaryResponse> =>
   apiFetch<SummaryResponse>(`/slurps/${id}/summary`);

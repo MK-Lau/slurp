@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { Slurp, Participant } from "@slurp/types";
-import { computeParticipantBreakdown, CURRENCY_MAP } from "@slurp/types";
+import { computeAllBreakdowns } from "@slurp/types";
+import { formatAmount } from "@/lib/currency";
 import SelectionPanel from "./SelectionPanel";
 import SummaryView from "./SummaryView";
 import ParticipantList from "./ParticipantList";
@@ -15,30 +16,19 @@ interface Props {
   tab: string;
 }
 
-function fmt(n: number): string {
-  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 function TotalsAccordion({ slurp, participant }: { slurp: Slurp; participant: Participant }): React.JSX.Element {
   const [open, setOpen] = useState(false);
 
   const breakdown = useMemo(() => {
-    const itemMap = new Map(slurp.items.map((i) => [i.id, i]));
-    const selectorCounts = new Map<string, number>();
-    for (const p of slurp.participants) {
-      for (const id of p.selectedItemIds) {
-        selectorCounts.set(id, (selectorCounts.get(id) ?? 0) + 1);
-      }
-    }
-    const totalSubtotal = slurp.participants.reduce((acc, p) =>
-      acc + p.selectedItemIds.reduce((s, id) => {
-        const item = itemMap.get(id);
-        return item ? s + item.price / Math.max(selectorCounts.get(id) ?? 1, 1) : s;
-      }, 0), 0);
-    return computeParticipantBreakdown(slurp, participant, totalSubtotal, selectorCounts);
+    return computeAllBreakdowns(slurp).find((entry) => entry.uid === participant.uid) ?? {
+      uid: participant.uid,
+      items: [],
+      subtotal: 0,
+      tax: 0,
+      tip: 0,
+      total: 0,
+    };
   }, [slurp, participant]);
-
-  const symbol = CURRENCY_MAP[slurp.currencyConversion?.billedCurrency ?? ""]?.symbol ?? "$";
 
   return (
     <Card className="overflow-hidden">
@@ -60,20 +50,26 @@ function TotalsAccordion({ slurp, participant }: { slurp: Slurp; participant: Pa
           <div className="px-4 py-3 space-y-1.5 text-sm">
             <div className="flex justify-between text-gray-600 dark:text-gray-400">
               <span>Subtotal</span>
-              <span>{symbol}{fmt(breakdown.subtotal)}</span>
+              <span>{formatAmount(breakdown.subtotal, slurp.currencyConversion)}</span>
             </div>
             <div className="flex justify-between text-gray-600 dark:text-gray-400">
               <span>Tax</span>
-              <span>{symbol}{fmt(breakdown.tax)}</span>
+              <span>{formatAmount(breakdown.tax, slurp.currencyConversion)}</span>
             </div>
             <div className="flex justify-between text-gray-600 dark:text-gray-400">
               <span>Tip</span>
-              <span>{symbol}{fmt(breakdown.tip)}</span>
+              <span>{formatAmount(breakdown.tip, slurp.currencyConversion)}</span>
             </div>
+            {!!breakdown.roundingAdjustment && (
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span>Rounding adjustment</span>
+                <span>{formatAmount(breakdown.roundingAdjustment, slurp.currencyConversion)}</span>
+              </div>
+            )}
             <Divider />
             <div className="flex justify-between font-semibold text-purple-700">
               <span>Your total</span>
-              <span>{symbol}{fmt(breakdown.total)}</span>
+              <span>{formatAmount(breakdown.total, slurp.currencyConversion)}</span>
             </div>
           </div>
         </>
