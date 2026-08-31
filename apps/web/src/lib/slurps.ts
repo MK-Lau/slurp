@@ -1,6 +1,7 @@
 import type {
   Slurp,
   GetSlurpResponse,
+  SlurpRevisionResponse,
   ListSlurpsResponse,
   CreateSlurpRequest,
   UpdateSlurpRequest,
@@ -30,6 +31,9 @@ export const createSlurp = (body: CreateSlurpRequest): Promise<Slurp> =>
 
 export const getSlurp = (id: string): Promise<GetSlurpResponse> =>
   apiFetch<GetSlurpResponse>(`/slurps/${id}`);
+
+export const getSlurpRevision = (id: string): Promise<SlurpRevisionResponse> =>
+  apiFetch<SlurpRevisionResponse>(`/slurps/${id}/revision`);
 
 export const getSlurpPreview = (id: string, token: string): Promise<SlurpPreviewResponse> =>
   apiFetch<SlurpPreviewResponse>(`/slurps/${id}/preview?token=${encodeURIComponent(token)}`);
@@ -69,9 +73,6 @@ export const confirmSlurp = (id: string, splitRevision?: number): Promise<GetSlu
 
 export const getSummary = (id: string): Promise<SummaryResponse> =>
   apiFetch<SummaryResponse>(`/slurps/${id}/summary`);
-
-export const markAsPaid = (id: string): Promise<GetSlurpResponse> =>
-  apiFetch<GetSlurpResponse>(`/slurps/${id}/pay`, { method: "POST" });
 
 export const getReceiptUploadUrl = (
   id: string,

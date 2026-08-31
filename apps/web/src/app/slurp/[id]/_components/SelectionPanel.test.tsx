@@ -160,8 +160,9 @@ describe("SelectionPanel — fixed shares", () => {
     expect(mockUpdateSelections).toHaveBeenCalledWith("slurp-1", { itemShares: { "item-1": 1 } });
   });
 
-  it("allows a guest to claim another available share", async () => {
+  it("allows a guest to claim another share on an open-split item", async () => {
     const slurp = fixedSlurp();
+    delete slurp.items[0].shareCount;
     const participant = { ...fixedParticipant, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };
     slurp.participants[1] = participant;
     mockUpdateSelections.mockResolvedValue({ ...slurp, viewerUid: PARTICIPANT_UID, viewerEmail: "viewer@example.com" });
@@ -170,6 +171,16 @@ describe("SelectionPanel — fixed shares", () => {
     await act(async () => { fireEvent.click(screen.getByLabelText("Claim another share of Pizza")); });
 
     expect(mockUpdateSelections).toHaveBeenCalledWith("slurp-1", { itemShares: { "item-1": 2 } });
+  });
+
+  it("does not offer multiple personal shares when the host set a preset", () => {
+    const slurp = fixedSlurp();
+    const participant = { ...fixedParticipant, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };
+    slurp.participants[1] = participant;
+
+    render(<SelectionPanel slurp={slurp} participant={participant} onUpdate={jest.fn()} />);
+
+    expect(screen.queryByLabelText("Claim another share of Pizza")).toBeNull();
   });
 
   it("displays the same floored cent amount that the guest is billed", () => {
@@ -194,12 +205,12 @@ describe("SelectionPanel — fixed shares", () => {
     expect(screen.queryByText("$1.67")).toBeNull();
   });
 
-  it("shows that a confirmed fixed-share total is locked", () => {
+  it("warns that a confirmed total can be recalculated after split changes", () => {
     const slurp = fixedSlurp();
     const participant = { ...fixedParticipant, status: "confirmed" as const, selectedItemIds: ["item-1"], selectedItemShares: { "item-1": 1 } };
     slurp.participants[1] = participant;
     render(<SelectionPanel slurp={slurp} participant={participant} onUpdate={jest.fn()} />);
-    expect(screen.getByText(/Your total is locked/)).toBeDefined();
+    expect(screen.getByText(/total may be recalculated/)).toBeDefined();
   });
 
   it("confirms the exact split revision shown to the guest", async () => {

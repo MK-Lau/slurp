@@ -5,6 +5,7 @@ import {
   validateFixedShareClaims,
   validateFixedShareCountChange,
   validateFixedConfirmation,
+  validatePartySizeChange,
   validateSplitRevision,
 } from "./fixedShares";
 
@@ -23,13 +24,22 @@ const slurp: Slurp = {
 };
 
 describe("fixed share API validation", () => {
-  it("allows a participant to replace their own claim without double counting it", () => {
-    expect(validateFixedShareClaims(slurp, "a", { pizza: 2 })).toEqual({ pizza: 2 });
+  it("allows multiple personal shares only when the item has no preset", () => {
+    expect(() => validateFixedShareClaims(slurp, "a", { pizza: 2 }))
+      .toThrow("Only open-split items");
+    const open = structuredClone(slurp);
+    delete open.items[0].shareCount;
+    expect(validateFixedShareClaims(open, "a", { pizza: 2 })).toEqual({ pizza: 2 });
   });
 
-  it("rejects over-claiming under concurrent participant state", () => {
-    expect(() => validateFixedShareClaims(slurp, "host", { pizza: 2 }))
-      .toThrow("Not enough shares remaining for Pizza");
+  it("allows opt-in past the host preset but enforces the party-size ceiling", () => {
+    expect(validateFixedShareClaims(slurp, "host", { pizza: 1 })).toEqual({ pizza: 1 });
+    const limitedParty = structuredClone(slurp);
+    limitedParty.expectedGuests = 2;
+    delete limitedParty.items[0].shareCount;
+    limitedParty.participants.push({ uid: "c", role: "guest", status: "pending", selectedItemIds: ["pizza"], selectedItemShares: { pizza: 1 } });
+    expect(() => validateFixedShareClaims(limitedParty, "host", { pizza: 1 }))
+      .toThrow("An item cannot be split more than 3 ways");
   });
 
   it.each([{ pizza: 0 }, { pizza: -1 }, { pizza: 1.5 }, { pizza: 11 }, { unknown: 1 }])(
@@ -57,10 +67,17 @@ describe("fixed share API validation", () => {
       .toThrow("Claim at least one share");
   });
 
-  it("rejects reducing an item below shares claimed in the transaction snapshot", () => {
-    expect(() => validateFixedShareCountChange(slurp, slurp.items[0], 1))
-      .toThrow("Cannot reduce below 2 already claimed shares");
+  it("allows a host to lower a preset below the current opt-ins", () => {
+    expect(validateFixedShareCountChange(slurp, slurp.items[0], 1)).toBe(1);
     expect(validateFixedShareCountChange(slurp, slurp.items[0], 2)).toBe(2);
+  });
+
+  it("rejects adding a preset while one person holds multiple open shares", () => {
+    const open = structuredClone(slurp);
+    delete open.items[0].shareCount;
+    open.participants[1].selectedItemShares = { pizza: 2 };
+    expect(() => validateFixedShareCountChange(open, open.items[0], 2))
+      .toThrow("someone has multiple shares");
   });
 
   it("rejects confirmation with no claims or while receipt processing is active", () => {
@@ -95,7 +112,7 @@ describe("fixed share API validation", () => {
     expect(() => validateSplitRevision(revised, 4)).not.toThrow();
   });
 
-  it("locks financial configuration when anyone confirms or pays", () => {
+  it("locks financial configuration on confirmation but ignores legacy paid flags", () => {
     expect(isFixedFinanciallyLocked(slurp)).toBe(false);
     expect(isFixedFinanciallyLocked({
       ...slurp,
@@ -104,6 +121,13 @@ describe("fixed share API validation", () => {
     expect(isFixedFinanciallyLocked({
       ...slurp,
       participants: [{ ...slurp.participants[0], paid: true }],
-    })).toBe(true);
+    })).toBe(false);
+  });
+
+  it("rejects a party-size reduction below presets or claims", () => {
+    expect(() => validatePartySizeChange(slurp, 1)).toThrow("3-way preset");
+    const open = structuredClone(slurp);
+    delete open.items[0].shareCount;
+    expect(() => validatePartySizeChange(open, 0)).toThrow("2 shares already claimed");
   });
 });

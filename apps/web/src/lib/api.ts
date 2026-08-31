@@ -3,6 +3,13 @@ import { getFirebaseAuth } from "./firebase";
 
 const inFlight = new Map<string, Promise<unknown>>();
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -32,9 +39,9 @@ export async function apiFetch<T>(
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       const message = (body as { error?: string }).error;
-      if (message) throw new Error(message);
-      if (res.status === 429) throw new Error("Too many requests, please try again later");
-      throw new Error(`HTTP ${res.status}`);
+      if (message) throw new ApiError(message, res.status);
+      if (res.status === 429) throw new ApiError("Too many requests, please try again later", res.status);
+      throw new ApiError(`HTTP ${res.status}`, res.status);
     }
     if (res.status === 204 || res.headers.get("content-length") === "0") {
       return undefined as T;

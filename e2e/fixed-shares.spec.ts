@@ -51,6 +51,11 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
     redirect: "/",
   });
   const hostToken = await hostCapture.wait();
+  const hostProfile = await apiFetchWithToken(hostPage.request, "/profile", hostToken, {
+    method: "PUT",
+    body: { venmoUsername: "fixed-host" },
+  });
+  expect(hostProfile.status, hostProfile.text).toBe(200);
 
   const created = await apiFetchWithToken(hostPage.request, "/slurps", hostToken, {
     method: "POST",
@@ -79,13 +84,6 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
   await expect(hostPage.getByRole("heading", { name: "Fixed Share Dinner" })).toBeVisible({ timeout: 15_000 });
   const splitControls = hostPage.getByLabel("Default split");
   await expect(splitControls).toHaveCount(2, { timeout: 10_000 });
-  {
-    const response = hostPage.waitForResponse(
-      (candidate) => candidate.url().endsWith(`/items/${pizzaId}`) && candidate.request().method() === "PATCH"
-    );
-    await splitControls.first().selectOption("3");
-    expect((await response).status()).toBe(200);
-  }
 
   const invitePath = `/slurp/${slurpId}?token=${inviteToken}`;
   const guestA = await joinSlurp(browser, invitePath, "GuestAlpha");
@@ -106,19 +104,11 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
     expect((await response).status()).toBe(200);
   }
   await expect(guestA.page.getByText("2 shares", { exact: true })).toBeVisible();
-  await expect(guestA.page.getByText("$26.00", { exact: true })).toBeVisible();
+  await expect(guestA.page.getByText("$39.00", { exact: true })).toBeVisible();
 
   await guestA.page.getByRole("button", { name: "Summary", exact: true }).click();
   await expect(guestA.page.getByText("Subtotal", { exact: true }).first()).toBeVisible();
   await expect(guestA.page.getByRole("button", { name: "Mark as paid" })).toHaveCount(0);
-  const pendingPay = await apiFetchWithToken(
-    guestA.page.request,
-    `/slurps/${slurpId}/pay`,
-    guestA.token,
-    { method: "POST" }
-  );
-  expect(pendingPay.status).toBe(400);
-  expect(pendingPay.body.error).toMatch(/confirm your shares/i);
   await guestA.page.getByRole("button", { name: "My Items", exact: true }).click();
 
   const beforeRevisionChange = await apiFetchWithToken(
@@ -126,7 +116,15 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
     `/slurps/${slurpId}`,
     guestA.token
   );
-  expect(beforeRevisionChange.body.splitRevision).toBe(3);
+  expect(beforeRevisionChange.body.splitRevision).toBe(4);
+  const noOpSelection = await apiFetchWithToken(
+    guestA.page.request,
+    `/slurps/${slurpId}/selections`,
+    guestA.token,
+    { method: "PUT", body: { itemShares: { [pizzaId]: 2 } } }
+  );
+  expect(noOpSelection.status).toBe(200);
+  expect(noOpSelection.body.splitRevision).toBe(4);
 
   // Change a zero-cost item's default so the guest total stays the same while
   // their cached revision becomes stale.
@@ -146,16 +144,25 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
 
   await guestA.page.reload();
   await expect(guestA.page.getByText("2 shares", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(guestA.page.getByText("$26.00", { exact: true })).toBeVisible();
+  await expect(guestA.page.getByText("$39.00", { exact: true })).toBeVisible();
   await guestA.page.getByRole("button", { name: "Done — confirm selections" }).click();
   await expect(guestA.page.getByText("You've confirmed your selections")).toBeVisible({ timeout: 15_000 });
   await guestA.page.getByRole("button", { name: "Summary", exact: true }).click();
-  await expect(guestA.page.getByRole("button", { name: "Mark as paid" })).toBeVisible({ timeout: 15_000 });
+  await expect(guestA.page.getByRole("link", { name: /Pay in Venmo/ })).toBeVisible({ timeout: 15_000 });
+
+  const lockedReceipt = await apiFetchWithToken(
+    hostPage.request,
+    `/slurps/${slurpId}/receipt/upload-url`,
+    hostToken,
+    { method: "POST", body: { contentType: "image/jpeg" } }
+  );
+  expect(lockedReceipt.status).toBe(409);
+  expect(lockedReceipt.body.error).toMatch(/locked.*confirmed/i);
 
   const guestB = await joinSlurp(browser, invitePath, "GuestBeta");
 
-  // Only one caller can claim the final pizza share. Both requests use real
-  // authenticated API routes and the Firestore emulator transaction layer.
+  // Only one caller can claim the final party-sized pizza share. Both requests
+  // use real authenticated API routes and the Firestore emulator transaction layer.
   const [hostClaim, guestClaim] = await Promise.all([
     apiFetchWithToken(hostPage.request, `/slurps/${slurpId}/selections`, hostToken, {
       method: "PUT",
@@ -171,7 +178,7 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
     `host=${hostClaim.status} ${hostClaim.text}; guest=${guestClaim.status} ${guestClaim.text}`
   ).toEqual([200, 400]);
   expect([hostClaim, guestClaim].find((response) => response.status === 400)?.body.error)
-    .toMatch(/Not enough shares remaining/);
+    .toMatch(/cannot be split more than 3 ways/);
 
   const summary = await apiFetchWithToken(
     guestA.page.request,
@@ -190,14 +197,15 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
   expect(guestBreakdown.total).toBe(26);
   expect(guestBreakdown.subtotal).toBe(20);
 
-  const lockedReceipt = await apiFetchWithToken(
+  // The successful divisor-changing claim invalidates prior confirmations, so
+  // receipt replacement is available again until participants reconfirm.
+  const unlockedReceipt = await apiFetchWithToken(
     hostPage.request,
     `/slurps/${slurpId}/receipt/upload-url`,
     hostToken,
     { method: "POST", body: { contentType: "image/jpeg" } }
   );
-  expect(lockedReceipt.status).toBe(409);
-  expect(lockedReceipt.body.error).toMatch(/locked.*confirmed/i);
+  expect(unlockedReceipt.status, unlockedReceipt.text).toBe(200);
 
   await hostContext.close();
   await guestA.page.context().close();

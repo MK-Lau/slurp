@@ -44,6 +44,8 @@ export interface Slurp {
   splitVersion?: 2;
   /** Increments whenever a version 2 financial configuration changes. */
   splitRevision?: number;
+  /** One-time marker for removing the former implicit one-share default. */
+  openSplitDefaultsMigrated?: boolean;
   expectedGuests?: number; // guests besides the host; absent = not specified
   items: Item[];
   participants: Participant[];

@@ -25,6 +25,12 @@ export interface GetSlurpResponse extends Slurp {
   viewerUid: string;
 }
 
+export interface SlurpRevisionResponse {
+  splitRevision?: number;
+  updatedAt: string;
+  receiptStatus?: Slurp["receiptStatus"];
+}
+
 // PATCH /slurps/:id
 export interface UpdateSlurpRequest {
   title?: string;
@@ -46,7 +52,8 @@ export type AddItemResponse = Slurp;
 export interface UpdateItemRequest {
   name?: string;
   price?: number;
-  shareCount?: number;
+  /** Optional host preset; null clears it and returns to open splitting. */
+  shareCount?: number | null;
 }
 export type UpdateItemResponse = Slurp;
 

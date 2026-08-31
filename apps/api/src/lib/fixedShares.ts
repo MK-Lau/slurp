@@ -2,6 +2,27 @@ import type { Item, Participant, Slurp } from "@slurp/types";
 import { computeAllBreakdowns, MAX_PARTICIPANTS } from "@slurp/types";
 import { BadRequestError } from "../middleware/errorHandler";
 
+/** The party size is the hard ceiling for portions of any one item. */
+export function maxSharesPerItem(slurp: Slurp): number {
+  return slurp.expectedGuests != null ? slurp.expectedGuests + 1 : MAX_PARTICIPANTS;
+}
+
+export function validatePartySizeChange(slurp: Slurp, expectedGuests: number | undefined): void {
+  const maximum = expectedGuests != null ? expectedGuests + 1 : MAX_PARTICIPANTS;
+  for (const item of slurp.items) {
+    if ((item.shareCount ?? 0) > maximum) {
+      throw new BadRequestError(`Guest count cannot be lower than the ${item.shareCount}-way preset for ${item.name}`);
+    }
+    const claimed = slurp.participants.reduce(
+      (sum, participant) => sum + (participant.selectedItemShares?.[item.id] ?? 0),
+      0
+    );
+    if (claimed > maximum) {
+      throw new BadRequestError(`Guest count cannot be lower than the ${claimed} shares already claimed for ${item.name}`);
+    }
+  }
+}
+
 export function validateFixedShareClaims(
   slurp: Slurp,
   participantUid: string,
@@ -14,8 +35,12 @@ export function validateFixedShareClaims(
   const itemShares: Record<string, number> = {};
   for (const [id, rawCount] of Object.entries(rawShares as Record<string, unknown>)) {
     if (!itemById.has(id)) throw new BadRequestError(`Unknown item id: ${id}`);
-    if (typeof rawCount !== "number" || !Number.isInteger(rawCount) || rawCount < 1 || rawCount > MAX_PARTICIPANTS) {
-      throw new BadRequestError(`Shares for ${id} must be a whole number between 1 and ${MAX_PARTICIPANTS}`);
+    const item = itemById.get(id)!;
+    if (typeof rawCount !== "number" || !Number.isInteger(rawCount) || rawCount < 1 || rawCount > maxSharesPerItem(slurp)) {
+      throw new BadRequestError(`Shares for ${id} must be a whole number between 1 and ${maxSharesPerItem(slurp)}`);
+    }
+    if (item.shareCount != null && rawCount > 1) {
+      throw new BadRequestError(`Only open-split items can have multiple shares claimed by one person`);
     }
     itemShares[id] = rawCount;
   }
@@ -26,8 +51,8 @@ export function validateFixedShareClaims(
         : sum + (participant.selectedItemShares?.[item.id] ?? 0),
       0
     );
-    if (othersClaimed + (itemShares[item.id] ?? 0) > (item.shareCount ?? 1)) {
-      throw new BadRequestError(`Not enough shares remaining for ${item.name}`);
+    if (othersClaimed + (itemShares[item.id] ?? 0) > maxSharesPerItem(slurp)) {
+      throw new BadRequestError(`An item cannot be split more than ${maxSharesPerItem(slurp)} ways`);
     }
   }
   return itemShares;
@@ -35,15 +60,11 @@ export function validateFixedShareClaims(
 
 export function validateFixedShareCountChange(slurp: Slurp, item: Item, rawShareCount: unknown): number {
   if (typeof rawShareCount !== "number" || !Number.isInteger(rawShareCount)
-      || rawShareCount < 1 || rawShareCount > MAX_PARTICIPANTS) {
-    throw new BadRequestError(`shareCount must be a whole number between 1 and ${MAX_PARTICIPANTS}`);
+      || rawShareCount < 1 || rawShareCount > maxSharesPerItem(slurp)) {
+    throw new BadRequestError(`shareCount must be a whole number between 1 and ${maxSharesPerItem(slurp)}`);
   }
-  const claimed = slurp.participants.reduce(
-    (sum, participant) => sum + (participant.selectedItemShares?.[item.id] ?? 0),
-    0
-  );
-  if (rawShareCount < claimed) {
-    throw new BadRequestError(`Cannot reduce below ${claimed} already claimed shares`);
+  if (slurp.participants.some((participant) => (participant.selectedItemShares?.[item.id] ?? 0) > 1)) {
+    throw new BadRequestError(`Cannot set a preset while someone has multiple shares of ${item.name}`);
   }
   return rawShareCount;
 }
@@ -70,13 +91,13 @@ export function allFixedSharesClaimed(slurp: Slurp): boolean {
     slurp.participants.reduce(
       (sum, participant) => sum + (participant.selectedItemShares?.[item.id] ?? 0),
       0
-    ) === (item.shareCount ?? 1)
+    ) >= (item.shareCount ?? 1)
   );
 }
 
 export function isFixedFinanciallyLocked(slurp: Slurp): boolean {
   return slurp.splitVersion === 2 && slurp.participants.some(
-    (participant) => participant.status === "confirmed" || participant.paid
+    (participant) => participant.status === "confirmed"
   );
 }
 

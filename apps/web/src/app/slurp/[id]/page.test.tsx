@@ -6,6 +6,7 @@
 import { render, screen, act } from "@testing-library/react";
 import SlurpPage from "./page";
 import type { Slurp } from "@slurp/types";
+import { ApiError } from "@/lib/api";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -41,8 +42,10 @@ jest.mock("@/contexts/AuthContext", () => ({
 }));
 
 const mockGetSlurp = jest.fn();
+const mockGetSlurpRevision = jest.fn();
 jest.mock("@/lib/slurps", () => ({
   getSlurp: (...args: unknown[]) => mockGetSlurp(...args),
+  getSlurpRevision: (...args: unknown[]) => mockGetSlurpRevision(...args),
   getSlurpPreview: jest.fn(),
 }));
 
@@ -92,6 +95,7 @@ describe("SlurpPage polling", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockGetSlurp.mockReset();
+    mockGetSlurpRevision.mockReset();
   });
 
   afterEach(() => {
@@ -193,6 +197,80 @@ describe("SlurpPage polling", () => {
     act(() => { jest.advanceTimersByTime(10000); });
     await flushMicrotasks();
 
+    expect(mockGetSlurp).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps polling a completed version 2 slurp for split changes", async () => {
+    const confirmed = makeSlurp({
+      splitVersion: 2,
+      splitRevision: 3,
+      receiptStatus: "done",
+      participants: [{
+        uid: "host-uid-1",
+        email: "host@example.com",
+        role: "host",
+        status: "confirmed",
+        selectedItemIds: ["item-1"],
+        selectedItemShares: { "item-1": 1 },
+      }],
+      items: [{ id: "item-1", name: "Pizza", price: 10 }],
+    });
+    const reopened = {
+      ...confirmed,
+      splitRevision: 4,
+      updatedAt: "2026-01-01T00:00:02Z",
+      participants: [{ ...confirmed.participants[0], status: "pending" as const }],
+    };
+    mockGetSlurp.mockResolvedValueOnce(confirmed).mockResolvedValueOnce(reopened);
+    mockGetSlurpRevision.mockResolvedValueOnce({
+      splitRevision: reopened.splitRevision,
+      updatedAt: reopened.updatedAt,
+      receiptStatus: reopened.receiptStatus,
+    });
+
+    render(<SlurpPage />);
+    await flushMicrotasks();
+    expect(screen.getByText("All confirmed")).toBeDefined();
+
+    act(() => { jest.advanceTimersByTime(2000); });
+    await flushMicrotasks();
+
+    expect(mockGetSlurp).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("0/1 confirmed")).toBeDefined();
+  });
+
+  it("stops polling after a non-retriable response", async () => {
+    const slurp = makeSlurp({ splitVersion: 2, receiptStatus: "done" });
+    mockGetSlurp.mockResolvedValueOnce(slurp);
+    mockGetSlurpRevision.mockRejectedValueOnce(new ApiError("You are no longer a participant", 403));
+
+    render(<SlurpPage />);
+    await flushMicrotasks();
+    act(() => { jest.advanceTimersByTime(2000); });
+    await flushMicrotasks();
+    expect(screen.getByText("You are no longer a participant")).toBeDefined();
+
+    act(() => { jest.advanceTimersByTime(10000); });
+    await flushMicrotasks();
+    expect(mockGetSlurpRevision).toHaveBeenCalledTimes(1);
+    expect(mockGetSlurp).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the lightweight revision check without refetching unchanged slurp data", async () => {
+    const slurp = makeSlurp({ splitVersion: 2, splitRevision: 2, receiptStatus: "done" });
+    mockGetSlurp.mockResolvedValueOnce(slurp);
+    mockGetSlurpRevision.mockResolvedValueOnce({
+      splitRevision: 2,
+      updatedAt: slurp.updatedAt,
+      receiptStatus: "done",
+    });
+
+    render(<SlurpPage />);
+    await flushMicrotasks();
+    act(() => { jest.advanceTimersByTime(2000); });
+    await flushMicrotasks();
+
+    expect(mockGetSlurpRevision).toHaveBeenCalledTimes(1);
     expect(mockGetSlurp).toHaveBeenCalledTimes(1);
   });
 });

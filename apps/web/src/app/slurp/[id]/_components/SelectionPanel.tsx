@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { updateSelections, confirmSlurp, getSummary } from "@/lib/slurps";
 import { useVenmoUrl } from "@/hooks/useVenmoUrl";
 import type { Slurp, Participant } from "@slurp/types";
-import { computeAllBreakdowns, computeFixedItemShareCents } from "@slurp/types";
+import { computeAllBreakdowns, computeFixedItemShareCents, MAX_PARTICIPANTS } from "@slurp/types";
 import { formatAmount, getVenmoAmount, isVenmoEligible } from "@/lib/currency";
 import { partyStatus } from "@/lib/party";
 import { Btn, Card, Divider, EmptyState, VenmoIcon } from "@/components/ui";
@@ -131,12 +131,14 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
           const selectors = slurp.participants.filter((p) => p.selectedItemIds.includes(item.id));
           const ownShares = participant.selectedItemShares?.[item.id] ?? (selected ? 1 : 0);
           const totalShares = item.shareCount ?? 1;
+          const maximumShares = slurp.expectedGuests != null ? slurp.expectedGuests + 1 : MAX_PARTICIPANTS;
           const claimedShares = slurp.splitVersion === 2
             ? slurp.participants.reduce((sum, p) => sum + (p.selectedItemShares?.[item.id] ?? 0), 0)
             : selectors.length;
           const remainingShares = Math.max(0, totalShares - claimedShares);
+          const displayDivisor = Math.max(item.shareCount ?? 0, claimedShares + (selected ? 0 : 1), 1);
           const sharePrice = slurp.splitVersion === 2
-            ? computeFixedItemShareCents(item) * Math.max(ownShares, 1) / 100
+            ? computeFixedItemShareCents(item, displayDivisor) * Math.max(ownShares, 1) / 100
             : item.price / Math.max(selectors.length, 1);
           const othersWhoSelected = selectors
             .filter((p) => p.uid !== participant.uid)
@@ -147,7 +149,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
             <div key={item.id} className={selected ? "bg-purple-50 dark:bg-purple-900/20" : ""}>
               <button
                 onClick={() => void handleToggle(item.id)}
-                disabled={isConfirmed || saving || (!selected && remainingShares === 0)}
+                disabled={isConfirmed || saving || (!selected && claimedShares >= maximumShares)}
                 className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left disabled:opacity-60"
               >
                 <div className={`shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${selected ? "bg-purple-600 border-purple-600" : "border-gray-300 dark:border-gray-600"}`}>
@@ -156,22 +158,24 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.name}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    Host set {totalShares === 1 ? "one person" : `${totalShares} equal shares`}
-                    {totalShares > 1 ? ` · ${remainingShares} remaining` : ""}
+                    {item.shareCount == null
+                      ? `Open split · up to ${maximumShares} people`
+                      : `Host preset ${totalShares === 1 ? "one person" : `${totalShares} equal shares`}`}
+                    {claimedShares < maximumShares ? ` · ${maximumShares - claimedShares} more can join` : ""}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-purple-700 dark:text-purple-400">
                     {formatAmount(sharePrice, slurp.currencyConversion)}
                   </p>
-                  {totalShares > 1 && (
+                  {(item.shareCount == null || totalShares > 1) && (
                     <p className="text-[10px] text-gray-400">
                       {selected ? `${ownShares} share${ownShares === 1 ? "" : "s"}` : "per share"}
                     </p>
                   )}
                 </div>
               </button>
-              {selected && totalShares > 1 && !isConfirmed && (
+              {selected && item.shareCount == null && !isConfirmed && (
                 <div className="px-4 pb-3 flex items-center justify-end gap-2">
                   <span className="mr-auto text-xs text-purple-700 dark:text-purple-300">Your shares</span>
                   <button
@@ -186,7 +190,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
                     type="button"
                     aria-label={`Claim another share of ${item.name}`}
                     onClick={() => void handleShareChange(item.id, 1)}
-                    disabled={saving || remainingShares === 0}
+                    disabled={saving || claimedShares >= maximumShares}
                     className="w-8 h-8 rounded-lg border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 disabled:opacity-40"
                   >+</button>
                 </div>
@@ -279,7 +283,7 @@ export default function SelectionPanel({ slurp, participant, onUpdate }: Props):
           </span>
           {slurp.splitVersion === 2 && (
             <span className="w-full text-xs text-emerald-700 dark:text-emerald-300">
-              Your total is locked and will not change when other guests join.
+              Your selections are confirmed. If another guest changes the split, your total may be recalculated and confirmation reopened.
             </span>
           )}
           {hostVenmoUsername && total > 0 && isVenmoEligible(slurp.currencyConversion) && (

@@ -61,6 +61,29 @@ export const globalLimiter: RequestHandler = isProd ? rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later" },
+  // Continuous revision checks have their own authenticated per-user budget.
+  skip: (req: Request) => req.method === "GET"
+    && /^\/slurps\/[^/]+\/revision\/?$/.test(req.path),
+}) : noopLimiter;
+
+// Lightweight polling budget. Kept in memory so checking a revision does not
+// add rate-limit datastore reads; authentication and participant authorization
+// still run before this limiter.
+export const pollingIpLimiter: RequestHandler = isProd ? rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 1200,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many refresh requests, please wait a moment" },
+}) : noopLimiter;
+
+export const pollingLimiter: RequestHandler = isProd ? rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 1200,
+  keyGenerator: (req: Request) => req.user?.uid ?? ipKeyGenerator(req.ip ?? "anonymous"),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many refresh requests, please wait a moment" },
 }) : noopLimiter;
 
 // Per-user limiter for receipt processing: 15/hour and 60/day.

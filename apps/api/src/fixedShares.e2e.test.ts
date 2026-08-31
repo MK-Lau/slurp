@@ -67,6 +67,18 @@ describe("fixed-share end-to-end calculation flow", () => {
     expect(computeAllBreakdowns(slurp).find((entry) => entry.uid === "guest")?.subtotal).toBe(1.66);
   });
 
+  it("reprices an item when a guest opts in beyond the host preset", () => {
+    const slurp = newFixedSlurp();
+    slurp.items = [{ id: "shared", name: "Shared", price: 12, shareCount: 2 }];
+    slurp.participants = [
+      { uid: "a", role: "guest", status: "pending", selectedItemIds: ["shared"], selectedItemShares: { shared: 1 } },
+      { uid: "b", role: "guest", status: "pending", selectedItemIds: ["shared"], selectedItemShares: { shared: 1 } },
+      { uid: "c", role: "guest", status: "pending", selectedItemIds: ["shared"], selectedItemShares: { shared: 1 } },
+    ];
+
+    expect(computeAllBreakdowns(slurp).map((entry) => entry.subtotal)).toEqual([4, 4, 4]);
+  });
+
   it("preserves legacy selector-count splitting when splitVersion is absent", () => {
     const slurp = newFixedSlurp();
     delete slurp.splitVersion;

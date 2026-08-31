@@ -11,6 +11,8 @@ import {
   createSlurpDailyLimiter,
   addItemHourlyLimiter,
   addItemDailyLimiter,
+  pollingIpLimiter,
+  pollingLimiter,
 } from "../middleware/rateLimiter";
 import {
   NotFoundError,
@@ -25,6 +27,7 @@ import {
   validateFixedShareClaims,
   validateFixedShareCountChange,
   validateFixedConfirmation,
+  validatePartySizeChange,
 } from "../lib/fixedShares";
 import { logger } from "../logger";
 import type { Slurp, Item, Participant, CurrencyConversion } from "@slurp/types";
@@ -50,6 +53,18 @@ function normalizeSlurp(data: DocumentData): Slurp {
   if (!d.removedUids) d.removedUids = [];
   if (!d.currencyConversion) {
     d.currencyConversion = { enabled: false, billedCurrency: "USD", homeCurrency: "USD", exchangeRate: 1 };
+  }
+  if (d.splitVersion === 2 && !d.openSplitDefaultsMigrated) {
+    const financiallyActive = d.participants.some((participant) =>
+      participant.status === "confirmed" || participant.paid
+      || Object.keys(participant.selectedItemShares ?? {}).length > 0
+    );
+    if (!financiallyActive) {
+      for (const item of d.items) {
+        if (item.shareCount === 1) delete item.shareCount;
+      }
+    }
+    d.openSplitDefaultsMigrated = true;
   }
   return d;
 }
@@ -280,6 +295,7 @@ router.post(
         tipAmount,
         splitVersion: 2,
         splitRevision: 0,
+        openSplitDefaultsMigrated: true,
         expectedGuests,
         items: [],
         participants: [hostParticipant],
@@ -344,6 +360,27 @@ router.get(
   }
 );
 
+// GET /slurps/:id/revision — lightweight authenticated polling metadata
+router.get(
+  "/:id/revision",
+  pollingIpLimiter,
+  requireAuth,
+  pollingLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const slurp = await getSlurp(req.params.id);
+      requireParticipant(slurp, req.user.uid);
+      res.json({
+        splitRevision: slurp.splitRevision,
+        updatedAt: slurp.updatedAt,
+        receiptStatus: slurp.receiptStatus,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // GET /slurps/:id
 router.get(
   "/:id",
@@ -380,10 +417,16 @@ router.patch(
         if (title != null) slurp.title = validateString(title, "title", 64);
         // null explicitly clears; tx.set() overwrites the whole doc, and Firestore is
         // configured with ignoreUndefinedProperties, so undefined drops the field.
-        if (req.body.expectedGuests === null) {
-          slurp.expectedGuests = undefined;
-        } else if (req.body.expectedGuests !== undefined) {
-          slurp.expectedGuests = validateExpectedGuests(req.body.expectedGuests);
+        let partySizeChanged = false;
+        if (req.body.expectedGuests === null || req.body.expectedGuests !== undefined) {
+          const nextExpectedGuests = req.body.expectedGuests === null
+            ? undefined
+            : validateExpectedGuests(req.body.expectedGuests);
+          if (nextExpectedGuests !== slurp.expectedGuests) {
+            if (slurp.splitVersion === 2) validatePartySizeChange(slurp, nextExpectedGuests);
+            slurp.expectedGuests = nextExpectedGuests;
+            partySizeChanged = slurp.splitVersion === 2;
+          }
         }
         let costChanged = false;
         if (req.body.taxAmount != null || req.body.tipAmount != null) {
@@ -399,7 +442,7 @@ router.patch(
           costChanged = true;
         }
         // Only reset confirmations when amounts owed actually change, not for display-only updates
-        if (costChanged) {
+        if (costChanged || partySizeChanged) {
           resetConfirmations(slurp);
           bumpSplitRevision(slurp);
         }
@@ -455,7 +498,7 @@ router.post(
         validateString(name, "name", 64);
         const price = validatePrice(req.body.price);
         if (slurp.items.length >= 75) throw new BadRequestError("Maximum 75 items");
-        slurp.items.push({ id: nanoid(), name, price, ...(slurp.splitVersion === 2 ? { shareCount: 1 } : {}) });
+        slurp.items.push({ id: nanoid(), name, price });
         resetConfirmations(slurp);
         bumpSplitRevision(slurp);
         slurp.updatedAt = new Date().toISOString();
@@ -491,10 +534,11 @@ router.patch(
           item.price = validatePrice(req.body.price);
           financialChanged = true;
         }
-        if (req.body.shareCount != null) {
+        if (Object.prototype.hasOwnProperty.call(req.body, "shareCount")) {
           if (slurp.splitVersion !== 2) throw new BadRequestError("Fixed shares are not available for this slurp");
           requireMutableFixedAmounts(slurp);
-          item.shareCount = validateFixedShareCountChange(slurp, item, req.body.shareCount);
+          if (req.body.shareCount == null) delete item.shareCount;
+          else item.shareCount = validateFixedShareCountChange(slurp, item, req.body.shareCount);
           financialChanged = true;
         }
         if (financialChanged) {
@@ -636,9 +680,6 @@ router.delete(
         if (participantIndex === -1) throw new NotFoundError("Participant not found");
 
         const removed = slurp.participants[participantIndex];
-        if (slurp.splitVersion === 2 && removed.paid) {
-          throw new BadRequestError("Paid participants cannot be removed");
-        }
         slurp.participants.splice(participantIndex, 1);
         slurp.participantEmails = slurp.participantEmails.filter(
           (e) => e !== removed.email
@@ -678,13 +719,27 @@ router.put(
         const p = requireParticipant(slurp, req.user.uid);
         const validIds = new Set(slurp.items.map((i: Item) => i.id));
         if (slurp.splitVersion === 2) {
-          if (p.paid) throw new BadRequestError("Paid selections are locked");
           if (req.body.selectedItemIds !== undefined) {
             throw new BadRequestError("selectedItemIds is not valid for a fixed-share slurp");
           }
           const itemShares = validateFixedShareClaims(slurp, p.uid, req.body.itemShares);
+          const previousShares = p.selectedItemShares ?? {};
+          const shareKeys = new Set([...Object.keys(previousShares), ...Object.keys(itemShares)]);
+          const selectionChanged = [...shareKeys].some((id) => (previousShares[id] ?? 0) !== (itemShares[id] ?? 0));
+          if (!selectionChanged) return slurp;
+          const divisorChanged = slurp.items.some((item) => {
+            const previousTotal = slurp.participants.reduce(
+              (sum, participant) => sum + (participant.selectedItemShares?.[item.id] ?? 0),
+              0
+            );
+            const nextTotal = previousTotal - (previousShares[item.id] ?? 0) + (itemShares[item.id] ?? 0);
+            const preset = item.shareCount ?? 0;
+            return Math.max(1, preset, previousTotal) !== Math.max(1, preset, nextTotal);
+          });
           p.selectedItemShares = itemShares;
           p.selectedItemIds = Object.keys(itemShares);
+          if (divisorChanged) resetConfirmations(slurp);
+          bumpSplitRevision(slurp);
         } else {
           if (req.body.itemShares !== undefined) {
             throw new BadRequestError("itemShares is not valid for a legacy slurp");
@@ -765,9 +820,8 @@ router.get(
 
       const breakdowns = computeAllBreakdowns(slurp);
       const participants = breakdowns.map((b) => {
-        const p = slurp.participants.find((p: Participant) => p.uid === b.uid);
         const displayName = displayNames.get(b.uid);
-        return { ...b, ...(displayName ? { displayName } : {}), paid: p?.paid ?? false };
+        return { ...b, ...(displayName ? { displayName } : {}) };
       });
 
       res.json({
@@ -795,34 +849,6 @@ router.post(
       await ref.update({ receiptWarningDismissed: true, updatedAt: new Date().toISOString() });
       slurp.receiptWarningDismissed = true;
       res.json(sanitizeSlurpForResponse(slurp, req.user.uid, req.user.email));
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-// POST /slurps/:id/pay
-router.post(
-  "/:id/pay",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const ref = slurpRef(req.params.id);
-      const result = await db.runTransaction(async (tx) => {
-        const snap = await tx.get(ref);
-        if (!snap.exists) throw new NotFoundError("Slurp not found");
-        const slurp = normalizeSlurp(snap.data()!);
-        const p = requireParticipant(slurp, req.user.uid);
-        if (p.role === "host") throw new BadRequestError("Host cannot mark as paid");
-        if (slurp.splitVersion === 2 && p.status !== "confirmed") {
-          throw new BadRequestError("Confirm your shares before marking as paid");
-        }
-        p.paid = true;
-        slurp.updatedAt = new Date().toISOString();
-        tx.set(ref, slurp);
-        return slurp;
-      });
-      res.json(sanitizeSlurpForResponse(result, req.user.uid, req.user.email));
     } catch (err) {
       next(err);
     }
