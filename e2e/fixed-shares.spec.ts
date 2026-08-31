@@ -51,7 +51,7 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
     redirect: "/",
   });
   const hostToken = await hostCapture.wait();
-  const hostProfile = await apiFetchWithToken(hostPage.request, "/users/me", hostToken, {
+  const hostProfile = await apiFetchWithToken(hostPage.request, "/profile", hostToken, {
     method: "PUT",
     body: { venmoUsername: "fixed-host" },
   });
