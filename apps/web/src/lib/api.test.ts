@@ -1,4 +1,4 @@
-import { apiFetch } from "./api";
+import { ApiError, apiFetch } from "./api";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -30,12 +30,12 @@ function makeOkResponse(body: unknown): Response {
   } as unknown as Response;
 }
 
-function makeErrorResponse(): Response {
+function makeErrorResponse(status = 500, body: unknown = {}): Response {
   return {
     ok: false,
-    status: 500,
+    status,
     headers: { get: jest.fn().mockReturnValue(null) },
-    json: jest.fn().mockResolvedValue({}),
+    json: jest.fn().mockResolvedValue(body),
   } as unknown as Response;
 }
 
@@ -139,5 +139,23 @@ describe("apiFetch in-flight GET deduplication", () => {
 
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(r2).toEqual({ result: "retry-ok" });
+  });
+});
+
+describe("apiFetch errors", () => {
+  beforeAll(() => { global.fetch = jest.fn(); });
+  beforeEach(() => {
+    (global.fetch as jest.Mock).mockReset();
+    mockGetFirebaseAuth.mockReturnValue({ currentUser: makeUser("uid-a") });
+  });
+
+  it("preserves the HTTP status for polling retry decisions", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce(makeErrorResponse(403, { error: "Removed" }));
+
+    await expect(apiFetch("/slurps/s1")).rejects.toMatchObject<ApiError>({
+      name: "ApiError",
+      message: "Removed",
+      status: 403,
+    });
   });
 });

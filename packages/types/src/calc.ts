@@ -19,9 +19,8 @@ export interface ParticipantBreakdown {
 }
 
 /** Whole cents billed for one configured fixed share of an item. */
-export function computeFixedItemShareCents(item: Item): number {
-  const configuredShares = Math.max(1, item.shareCount ?? 1);
-  return Math.floor(Math.round(item.price * 100) / configuredShares);
+export function computeFixedItemShareCents(item: Item, shareCount = item.shareCount ?? 1): number {
+  return Math.floor(Math.round(item.price * 100) / Math.max(1, shareCount));
 }
 
 export function computeParticipantBreakdown(
@@ -43,7 +42,7 @@ export function computeParticipantBreakdown(
         ? participant.selectedItemShares?.[id] ?? 0
         : 1;
       const divisor = slurp.splitVersion === 2
-        ? Math.max(item.shareCount ?? 1, 1)
+        ? fixedShareDivisor(slurp, item)
         : Math.max(selectorCounts.get(id) ?? 1, 1);
       if (fixedShares <= 0) return null;
       return { item, sharePrice: item.price * fixedShares / divisor };
@@ -100,9 +99,9 @@ function computeFixedShareBreakdowns(slurp: Slurp): ParticipantBreakdown[] {
   let allocatedTipCents = 0;
 
   for (const item of slurp.items) {
-    const shares = Math.max(1, item.shareCount ?? 1);
+    const shares = fixedShareDivisor(slurp, item);
     const itemCents = Math.round(item.price * 100);
-    const perShareItemCents = computeFixedItemShareCents(item);
+    const perShareItemCents = computeFixedItemShareCents(item, shares);
     const perShareTaxCents = subtotalCents > 0
       ? Math.floor(itemCents * taxCents / (shares * subtotalCents))
       : 0;
@@ -154,4 +153,13 @@ function computeFixedShareBreakdowns(slurp: Slurp): ParticipantBreakdown[] {
       total: (participantSubtotalCents + participantTaxCents + participantTipCents + roundingAdjustmentCents) / 100,
     };
   });
+}
+
+/** A host preset is the initial split, but additional guests may opt in. */
+function fixedShareDivisor(slurp: Slurp, item: Item): number {
+  const claimedShares = slurp.participants.reduce(
+    (sum, participant) => sum + (participant.selectedItemShares?.[item.id] ?? 0),
+    0
+  );
+  return Math.max(1, item.shareCount ?? 0, claimedShares);
 }

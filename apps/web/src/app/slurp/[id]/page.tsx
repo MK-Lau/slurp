@@ -4,7 +4,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { getSlurp, getSlurpPreview } from "@/lib/slurps";
+import { getSlurp, getSlurpPreview, getSlurpRevision } from "@/lib/slurps";
+import { ApiError } from "@/lib/api";
 import { getProfile } from "@/lib/users";
 import { partyStatus } from "@/lib/party";
 import { Badge, PageFade, TabBar } from "@/components/ui";
@@ -109,17 +110,38 @@ function SlurpPageContent(): React.JSX.Element {
           onSlurpUpdate(current);
         }
 
-        while (current.receiptStatus === "processing" || current.receiptStatus === "pending") {
+        // Version 2 totals can change whenever another participant edits an
+        // open split, so keep the page synchronized after receipt processing.
+        while (current.splitVersion === 2
+          || current.receiptStatus === "processing"
+          || current.receiptStatus === "pending") {
           await new Promise<void>((resolve) => {
             pollRef.current = setTimeout(resolve, POLL_INTERVAL_MS);
           });
           if (cancelled) return;
           try {
+            if (current.splitVersion === 2) {
+              const revision = await getSlurpRevision(id);
+              if (cancelled) return;
+              if (revision.splitRevision === current.splitRevision
+                && revision.updatedAt === current.updatedAt
+                && revision.receiptStatus === current.receiptStatus) {
+                continue;
+              }
+            }
             current = await getSlurp(id);
             if (cancelled) return;
             onSlurpUpdate(current);
-          } catch {
-            break;
+          } catch (err) {
+            // A transient refresh failure should not permanently leave a
+            // version 2 page stale; retry on the next polling interval.
+            if (current.splitVersion !== 2) break;
+            if (err instanceof ApiError
+              && err.status >= 400 && err.status < 500
+              && ![408, 425, 429].includes(err.status)) {
+              setError(err.message);
+              break;
+            }
           }
         }
       } catch (err) {

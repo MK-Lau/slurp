@@ -71,13 +71,13 @@ describe("ItemList", () => {
     expect(screen.getByRole("button", { name: "Remove item" })).toBeDefined();
   });
 
-  it("offers every supported share count even when the expected party is smaller", () => {
+  it("offers an open split and limits host presets to the expected party size", () => {
     render(<ItemList slurp={{ ...makeFixedSlurp(), expectedGuests: 2 }} isHost onUpdate={jest.fn()} />);
 
     const options = Array.from((screen.getByLabelText("Default split") as HTMLSelectElement).options);
-    expect(options).toHaveLength(10);
-    expect(options[2].text).toBe("Everyone (3 shares)");
-    expect(options[9].text).toBe("10 equal shares");
+    expect(options).toHaveLength(4);
+    expect(options[0].text).toBe("No preset (split among everyone who selects)");
+    expect(options[3].text).toBe("Everyone (3 shares)");
   });
 
   it("lets the host set an item to everyone", async () => {

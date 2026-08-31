@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSummary, markAsPaid } from "@/lib/slurps";
+import { getSummary } from "@/lib/slurps";
 import { useVenmoUrl } from "@/hooks/useVenmoUrl";
 import type { Slurp, SummaryResponse } from "@slurp/types";
 import { CURRENCY_MAP, computeFixedItemShareCents } from "@slurp/types";
@@ -53,14 +53,10 @@ interface Props {
   onUpdate: (d: Slurp) => void;
 }
 
-export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Props): React.JSX.Element {
+export default function SummaryView({ slurp, isHost, viewerUid }: Props): React.JSX.Element {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [paying, setPaying] = useState(false);
-  // Holds the pending money action while the "not everyone joined" warning is up.
-  const [warning, setWarning] = useState<{ kind: "paid" } | { kind: "venmo"; url: string } | null>(null);
-
-  const participantsPaidKey = slurp.participants.map((p) => `${p.uid}:${p.paid ?? false}`).join(",");
+  const [warning, setWarning] = useState<{ url: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,26 +64,12 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
       .then((s) => { if (!cancelled) setSummary(s); })
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load summary"); });
     return () => { cancelled = true; };
-  }, [slurp.id, participantsPaidKey]);
+  }, [slurp.id, slurp.splitRevision, slurp.updatedAt]);
 
   if (error) return <p className="text-red-600">{error}</p>;
   if (!summary) return <p className="text-gray-400 text-sm">Loading summary…</p>;
 
   const hostVenmoUsername = summary.hostVenmoUsername;
-
-  async function handleMarkAsPaid(): Promise<void> {
-    setPaying(true);
-    try {
-      const updated = await markAsPaid(slurp.id);
-      onUpdate(updated);
-      const refreshed = await getSummary(slurp.id);
-      setSummary(refreshed);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to mark as paid");
-    } finally {
-      setPaying(false);
-    }
-  }
 
   const claimedItemIds = new Set(slurp.participants.flatMap((p) => p.selectedItemIds));
   const unclaimedItems = slurp.items.flatMap((item) => {
@@ -139,7 +121,6 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
       {/* Per-participant cards */}
       {summary.participants.map((p) => {
         const isCurrentUser = p.uid === viewerUid;
-        const participantPaid = p.paid ?? false;
         const participantData = slurp.participants.find((sp) => sp.uid === p.uid);
 
         return (
@@ -156,10 +137,6 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
               </div>
               {participantData?.status !== "confirmed" ? (
                 <Badge color="amber">Pending</Badge>
-              ) : participantPaid ? (
-                <Badge color="green">Paid</Badge>
-              ) : isHost && !isCurrentUser ? (
-                <Badge color="gray">Unpaid</Badge>
               ) : null}
             </div>
 
@@ -199,27 +176,13 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
                 {isCurrentUser && !isHost
                   && (slurp.splitVersion !== 2 || participantData?.status === "confirmed") && (
                   <div className="px-4 pb-4 flex flex-wrap gap-2">
-                    {participantPaid ? (
-                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-300 text-sm font-semibold">
-                        ✓ Paid
-                      </span>
-                    ) : (
-                      <Btn
-                        variant="success"
-                        size="sm"
-                        onClick={() => (party.incomplete && slurp.splitVersion !== 2 ? setWarning({ kind: "paid" }) : void handleMarkAsPaid())}
-                        disabled={paying}
-                      >
-                        {paying ? "Marking…" : "Mark as paid"}
-                      </Btn>
-                    )}
                     {hostVenmoUsername && p.total > 0 && isVenmoEligible(slurp.currencyConversion) && (
                       <VenmoLink
                         username={hostVenmoUsername}
                         amount={slurp.currencyConversion.enabled ? getVenmoAmount(p.total, slurp.currencyConversion) : p.total}
                         note={"Slurp: " + slurp.title}
                         {...(party.incomplete && slurp.splitVersion !== 2
-                          ? { onWarn: (url: string) => setWarning({ kind: "venmo", url }) }
+                          ? { onWarn: (url: string) => setWarning({ url }) }
                           : {})}
                       />
                     )}
@@ -235,11 +198,8 @@ export default function SummaryView({ slurp, isHost, viewerUid, onUpdate }: Prop
         <PartyIncompleteModal
           joined={party.joined}
           expectedTotal={party.expectedTotal}
-          {...(warning.kind === "venmo" ? { continueHref: warning.url } : {})}
-          onContinue={() => {
-            setWarning(null);
-            if (warning.kind === "paid") void handleMarkAsPaid();
-          }}
+          continueHref={warning.url}
+          onContinue={() => setWarning(null)}
           onCancel={() => setWarning(null)}
         />
       )}

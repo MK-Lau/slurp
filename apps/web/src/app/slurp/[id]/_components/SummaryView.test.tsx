@@ -12,10 +12,8 @@ jest.mock("@/hooks/useVenmoUrl", () => ({
 }));
 
 const mockGetSummary = jest.fn();
-const mockMarkAsPaid = jest.fn();
 jest.mock("@/lib/slurps", () => ({
   getSummary: (...args: unknown[]) => mockGetSummary(...args),
-  markAsPaid: (...args: unknown[]) => mockMarkAsPaid(...args),
 }));
 
 const VIEWER_UID = "participant-uid-1";
@@ -151,20 +149,18 @@ describe("SummaryView — Pay in Venmo button visibility", () => {
     expect(screen.queryByText("Pay in Venmo")).toBeNull();
   });
 
-  it("hides all payment actions until a fixed-share guest confirms", async () => {
+  it("hides the Venmo action until a fixed-share guest confirms", async () => {
     render(<SummaryView slurp={makeFixedSlurp("pending")} isHost={false} viewerUid={VIEWER_UID} onUpdate={jest.fn()} />);
     await flushMicrotasks();
 
     expect(screen.queryByText("Pay in Venmo")).toBeNull();
-    expect(screen.queryByText("Mark as paid")).toBeNull();
   });
 
-  it("shows payment actions after a fixed-share guest confirms", async () => {
+  it("shows the Venmo action after a fixed-share guest confirms", async () => {
     render(<SummaryView slurp={makeFixedSlurp("confirmed")} isHost={false} viewerUid={VIEWER_UID} onUpdate={jest.fn()} />);
     await flushMicrotasks();
 
     expect(screen.getByText("Pay in Venmo")).toBeDefined();
-    expect(screen.getByText("Mark as paid")).toBeDefined();
   });
 
   it("shows only billable cents for remaining fixed shares", async () => {
@@ -233,26 +229,4 @@ describe("SummaryView — incomplete party warning", () => {
     expect(screen.queryByText("Continue anyway")).toBeNull();
   });
 
-  it("warns before marking as paid and does not call the API yet", async () => {
-    await renderSummary(incompleteSlurp());
-    fireEvent.click(screen.getByText("Mark as paid"));
-    expect(screen.getByText("Not everyone has joined yet")).toBeDefined();
-    expect(mockMarkAsPaid).not.toHaveBeenCalled();
-  });
-
-  it("marks as paid only after Continue anyway", async () => {
-    mockMarkAsPaid.mockResolvedValue(incompleteSlurp());
-    await renderSummary(incompleteSlurp());
-    fireEvent.click(screen.getByText("Mark as paid"));
-    await act(async () => { fireEvent.click(screen.getByText("Continue anyway")); });
-    expect(mockMarkAsPaid).toHaveBeenCalledWith("slurp-1");
-  });
-
-  it("marks as paid immediately when the party is complete", async () => {
-    mockMarkAsPaid.mockResolvedValue(makeSlurp());
-    await renderSummary({ ...makeSlurp(), expectedGuests: 1 });
-    await act(async () => { fireEvent.click(screen.getByText("Mark as paid")); });
-    expect(mockMarkAsPaid).toHaveBeenCalledWith("slurp-1");
-    expect(screen.queryByText("Not everyone has joined yet")).toBeNull();
-  });
 });

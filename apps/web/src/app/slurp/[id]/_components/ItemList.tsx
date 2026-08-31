@@ -19,7 +19,7 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
   const [splitSavingId, setSplitSavingId] = useState<string | null>(null);
   const savingRef = useRef(false);
   const fixedAmountsLocked = slurp.splitVersion === 2 && slurp.participants.some(
-    (participant) => participant.status === "confirmed" || participant.paid
+    (participant) => participant.status === "confirmed"
   );
 
   function startEdit(itemId: string, name: string, price: number): void {
@@ -65,7 +65,7 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
     }
   }
 
-  async function handleShareCount(itemId: string, shareCount: number): Promise<void> {
+  async function handleShareCount(itemId: string, shareCount: number | null): Promise<void> {
     setSplitSavingId(itemId);
     try {
       const updated = await updateItem(slurp.id, itemId, { shareCount });
@@ -153,13 +153,14 @@ export default function ItemList({ slurp, isHost, onUpdate }: Props): React.JSX.
                 </label>
                 <select
                   id={`shares-${item.id}`}
-                  value={item.shareCount ?? 1}
+                  value={item.shareCount ?? ""}
                   disabled={splitSavingId === item.id || fixedAmountsLocked}
                   title={fixedAmountsLocked ? "Locked because a participant has confirmed" : undefined}
-                  onChange={(event) => void handleShareCount(item.id, Number(event.target.value))}
+                  onChange={(event) => void handleShareCount(item.id, event.target.value ? Number(event.target.value) : null)}
                   className="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-400"
                 >
-                  {Array.from({ length: MAX_PARTICIPANTS }, (_, index) => index + 1).map((count) => (
+                  <option value="">No preset (split among everyone who selects)</option>
+                  {Array.from({ length: slurp.expectedGuests != null ? slurp.expectedGuests + 1 : MAX_PARTICIPANTS }, (_, index) => index + 1).map((count) => (
                     <option key={count} value={count}>
                       {count === 1
                         ? "One person (100%)"
