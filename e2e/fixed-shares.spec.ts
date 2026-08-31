@@ -150,6 +150,15 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
   await guestA.page.getByRole("button", { name: "Summary", exact: true }).click();
   await expect(guestA.page.getByRole("link", { name: /Pay in Venmo/ })).toBeVisible({ timeout: 15_000 });
 
+  const lockedReceipt = await apiFetchWithToken(
+    hostPage.request,
+    `/slurps/${slurpId}/receipt/upload-url`,
+    hostToken,
+    { method: "POST", body: { contentType: "image/jpeg" } }
+  );
+  expect(lockedReceipt.status).toBe(409);
+  expect(lockedReceipt.body.error).toMatch(/locked.*confirmed/i);
+
   const guestB = await joinSlurp(browser, invitePath, "GuestBeta");
 
   // Only one caller can claim the final party-sized pizza share. Both requests
@@ -188,14 +197,15 @@ test("fixed shares: real UI, stale revision, concurrent claim, and receipt lock"
   expect(guestBreakdown.total).toBe(26);
   expect(guestBreakdown.subtotal).toBe(20);
 
-  const lockedReceipt = await apiFetchWithToken(
+  // The successful divisor-changing claim invalidates prior confirmations, so
+  // receipt replacement is available again until participants reconfirm.
+  const unlockedReceipt = await apiFetchWithToken(
     hostPage.request,
     `/slurps/${slurpId}/receipt/upload-url`,
     hostToken,
     { method: "POST", body: { contentType: "image/jpeg" } }
   );
-  expect(lockedReceipt.status).toBe(409);
-  expect(lockedReceipt.body.error).toMatch(/locked.*confirmed/i);
+  expect(unlockedReceipt.status, unlockedReceipt.text).toBe(200);
 
   await hostContext.close();
   await guestA.page.context().close();
